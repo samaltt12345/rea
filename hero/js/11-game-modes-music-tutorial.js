@@ -1,0 +1,400 @@
+// ================= GAME MODES + WEAK SPOTS =================
+        let gameMode = localStorage.getItem('hero_gm') === 'find' ? 'find' : 'identify', findQueue = [];
+        let missGuestUid = '', missSyncUnsub = null, missSyncBusy = false;
+        const missModes = ['default', 'twoyear'];
+        const missKey = (mode = yearMode, uid = missGuestUid) => uid ? `hero_miss_${mode}_guest_${uid}` : 'hero_miss_' + mode;
+        const readMiss = (mode, uid) => { try { return JSON.parse(localStorage.getItem(missKey(mode, uid))) || {}; } catch (e) { return {}; } };
+        const writeMiss = (mode, value, uid = missGuestUid) => localStorage.setItem(missKey(mode, uid), JSON.stringify(value || {}));
+        const getMiss = () => readMiss(yearMode, missGuestUid);
+        const mergeMiss = (...maps) => {
+            const merged = {};
+            maps.forEach(map => Object.entries(map || {}).forEach(([name, stat]) => {
+                const n = Math.max(Number(merged[name]?.n) || 0, Number(stat?.n) || 0);
+                const t = Math.max(Number(merged[name]?.t) || 0, Number(stat?.t) || 0);
+                if (n > 0) merged[name] = { n, t };
+            }));
+            return merged;
+        };
+        const sameMiss = (a, b) => JSON.stringify(Object.entries(a || {}).sort(([x], [y]) => x.localeCompare(y))) === JSON.stringify(Object.entries(b || {}).sort(([x], [y]) => x.localeCompare(y)));
+        const missDoc = uid => db.collection('artifacts').doc(appId).collection('public').doc('data').collection('memberStats').doc(uid);
+        function reconcileMisses(uid, cloud = {}) {
+            if (!uid || uid !== missGuestUid || missSyncBusy || !window.__heroCanAccessApp) return;
+            const importingLegacy = localStorage.getItem('hero_miss_legacy_imported') !== '1';
+            const local = Object.fromEntries(missModes.map(mode => [mode, mergeMiss(readMiss(mode, uid), importingLegacy ? readMiss(mode, '') : {})]));
+            const fields = { default: 'missesOneYear', twoyear: 'missesTwoYear' };
+            const merged = Object.fromEntries(missModes.map(mode => [mode, mergeMiss(cloud[fields[mode]], local[mode])]));
+            missModes.forEach(mode => writeMiss(mode, merged[mode], uid));
+            const changed = importingLegacy || !cloud.userId || missModes.some(mode => !sameMiss(merged[mode], cloud[fields[mode]]));
+            if (!changed) return;
+            missSyncBusy = true;
+            db.runTransaction(async transaction => {
+                const ref = missDoc(uid), snapshot = await transaction.get(ref), current = snapshot.exists ? snapshot.data() : {};
+                const next = Object.fromEntries(missModes.map(mode => [mode, mergeMiss(current[fields[mode]], merged[mode])]));
+                transaction.set(ref, {
+                    userId: uid, missesOneYear: next.default, missesTwoYear: next.twoyear,
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                }, { merge: true });
+                return next;
+            }).then(next => {
+                if (uid !== missGuestUid) return;
+                missModes.forEach(mode => writeMiss(mode, next[mode], uid));
+                localStorage.setItem('hero_miss_legacy_imported', '1');
+                missBadge(); renderReview();
+            }).catch(error => console.warn('Could not sync weak spots for this guest session:', error)).finally(() => { missSyncBusy = false; });
+        }
+        function syncGuestWeakSpots(event) {
+            const detail = event?.detail || {};
+            const uid = detail.authorized && detail.user ? detail.user.uid : '';
+            if (uid === missGuestUid) return;
+            if (missSyncUnsub) missSyncUnsub();
+            missSyncUnsub = null; missGuestUid = uid; missSyncBusy = false;
+            missBadge(); renderReview();
+            if (!uid || !window.__heroCanAccessApp) return;
+            missSyncUnsub = missDoc(uid).onSnapshot(snapshot => {
+                if (uid !== missGuestUid) return;
+                reconcileMisses(uid, snapshot.exists ? snapshot.data() : {});
+            }, error => console.warn('Could not load weak spots for this guest session:', error));
+        }
+        window.addEventListener('hero-auth-state', syncGuestWeakSpots);
+        function recordMiss(name) {
+            const mode = yearMode, uid = missGuestUid, local = getMiss();
+            local[name] = { n: ((local[name] && local[name].n) || 0) + 1, t: Date.now() };
+            writeMiss(mode, local, uid); missBadge();
+            if (!uid || !window.__heroCanAccessApp) return;
+            const fields = { default: 'missesOneYear', twoyear: 'missesTwoYear' }, ref = missDoc(uid);
+            db.runTransaction(async transaction => {
+                const snapshot = await transaction.get(ref), data = snapshot.exists ? snapshot.data() : {};
+                const next = { ...data[fields[mode]] }, previous = next[name] || {};
+                next[name] = { n: Math.max((Number(previous.n) || 0) + 1, Number(local[name].n) || 0), t: Math.max(Number(previous.t) || 0, Number(local[name].t) || 0) };
+                transaction.set(ref, {
+                    userId: uid, missesOneYear: mode === 'default' ? next : (data.missesOneYear || {}),
+                    missesTwoYear: mode === 'twoyear' ? next : (data.missesTwoYear || {}),
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                }, { merge: true });
+                return next;
+            }).then(next => { if (uid === missGuestUid) writeMiss(mode, next, uid); })
+                .catch(error => console.warn('Could not save a weak spot for this guest session:', error));
+        }
+        const topMissed = () => Object.entries(getMiss()).sort((a, b) => b[1].n - a[1].n || b[1].t - a[1].t).slice(0, 12);
+        function missBadge() { const n = Object.keys(getMiss()).length; document.getElementById('miss-count').textContent = n ? `(${n})` : ''; }
+        function setGameMode(m) { gameMode = m; localStorage.setItem('hero_gm', m); document.querySelectorAll('#mode-pick [data-gm]').forEach(b => b.classList.toggle('on', b.dataset.gm === m)); showToast(m === 'find' ? 'Find the Land: you get a name, tap its marker.' : 'Identify: tap a marker, then name it.', 'info'); }
+        function renderReview() {
+            const list = document.getElementById('review-list'), rows = topMissed(); list.innerHTML = '';
+            if (!rows.length) { list.innerHTML = '<p class="text-center text-slate-500 italic py-8">Nothing missed yet. Play a round and your weak spots will show up here.</p>'; return; }
+            const max = rows[0][1].n;
+            rows.forEach(([name, v]) => { const r = document.createElement('div'); r.className = 'rv-row'; r.innerHTML = `<span style="min-width:120px"></span><div class="bar"><i style="width:${Math.round(v.n / max * 100)}%"></i></div><span>${v.n}\u00d7</span>`; r.firstChild.textContent = name; list.appendChild(r); });
+        }
+        async function clearMisses() {
+            const uid = missGuestUid, message = uid ? 'This clears the missed places for this tour from this browser’s guest session.' : 'This forgets your missed places for this quiz on this device.';
+            if (!(await customConfirm({ title: 'Clear weak spots?', message, confirmText: 'Clear', danger: true }))) return;
+            if (uid && window.__heroCanAccessApp) {
+                const mode = yearMode, fields = { default: 'missesOneYear', twoyear: 'missesTwoYear' }, ref = missDoc(uid);
+                try {
+                    await db.runTransaction(async transaction => {
+                        const snapshot = await transaction.get(ref), data = snapshot.exists ? snapshot.data() : {};
+                        transaction.set(ref, {
+                            userId: uid, missesOneYear: mode === 'default' ? {} : (data.missesOneYear || {}),
+                            missesTwoYear: mode === 'twoyear' ? {} : (data.missesTwoYear || {}),
+                            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                        }, { merge: true });
+                    });
+                    localStorage.removeItem(missKey(mode, uid));
+                } catch (error) { showToast(`Could not clear weak spots (${error.code || 'error'}).`, 'error'); return; }
+            } else localStorage.removeItem(missKey(yearMode, ''));
+            renderReview(); missBadge();
+        }
+        function findClick(marker, loc) {
+            const t = findQueue[0]; if (!t || marker._done) return;
+            if (loc.id === t.id) {
+                const mk = quizStats[t.id].mistakes; points += mk === 0 ? 1000 : (mk === 1 ? 500 : 100); solvedCount++; quizStats[t.id].solved = true; marker._done = true;
+                marker.setIcon(L.divIcon({ className: 'custom-div-icon', html: "<div class='marker-pin solved'></div>", iconSize: [26, 26], iconAnchor: [13, 13] }));
+                document.getElementById('q-solved').innerText = solvedCount;
+                if (typeof updateScoreDisplay === 'function') updateScoreDisplay(); else document.getElementById('q-score').innerText = points.toLocaleString();
+                findQueue.shift(); findBanner();
+                if (!findQueue.length) setTimeout(endQuizEarly, 900);
+            } else { quizStats[t.id].mistakes++; recordMiss(t.name); badInput(document.getElementById('find-banner')); showToast("Not that one. Try again!", 'error'); }
+        }
+        function findBanner() {
+            let b = document.getElementById('find-banner');
+            if (gameMode !== 'find' || !findQueue.length) { if (b) b.remove(); return; }
+            if (!b) { b = document.createElement('div'); b.id = 'find-banner'; document.getElementById('quiz-view').appendChild(b); }
+            b.innerHTML = '<small></small><span></span>'; b.firstChild.textContent = findQueue[0].category || 'Find'; b.lastChild.textContent = findQueue[0].name;
+        }
+        function shuffled(arr) { const a = [...arr]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+        { const r = document.getElementById('rand-locs'); if (r) r.checked = localStorage.getItem('hero_rand') === '1'; }
+        const _sq2 = startQuiz;
+        startQuiz = function (m) {
+            const rnd = document.getElementById('rand-locs');
+            if (m !== 'review' && rnd && rnd.checked && !(typeof LEGENDS !== 'undefined' && globalLocations === LEGENDS)) {   // random 10-15 places, works in all 3 game modes
+                const custom = m === 'custom', pool = custom ? customLocations : globalLocations;
+                if (pool.length > 5) {
+                    const saved = pool, picked = shuffled(pool).slice(0, Math.min(pool.length, 10 + Math.floor(Math.random() * 6)));
+                    if (custom) customLocations = picked; else globalLocations = picked;
+                    try { _sq2(m); } finally { if (custom) customLocations = saved; else globalLocations = saved; }
+                    findQueue = gameMode === 'find' ? shuffled(activeQuizData) : []; findBanner(); return;
+                }
+            }
+            if (m === 'review') {
+                const names = new Set(topMissed().map(e => e[0])), list = store[yearMode].locs.filter(l => names.has(l.name));
+                if (!list.length) return showToast('No missed places yet. Play a round first!', 'info');
+                const saved = globalLocations; globalLocations = list; _sq2('default'); globalLocations = saved;
+            } else _sq2(m);
+            findQueue = gameMode === 'find' ? [...activeQuizData].sort(() => Math.random() - .5) : []; findBanner();
+        };
+        document.querySelector(`#mode-pick [data-gm="${gameMode}"]`).classList.add('on'); missBadge();
+
+        // ================= AMBIENT MUSIC (generated, no audio files) =================
+        if (prefs.music === undefined) { prefs.music = 'on'; prefs.vol = 35; }
+        const mus = { ctx: null, master: null, bus: null, i: 0, timer: null, failed: false };
+        let introMusicMuted = !!document.getElementById('intro');
+        const CHORDS = [[110, 164.8, 220, 261.6, 329.6], [87.3, 130.8, 174.6, 220, 329.6], [130.8, 196, 246.9, 329.6, 392], [98, 146.8, 196, 246.9, 293.7]];
+        function musicUnavailable(error) {
+            if (mus.failed) return;
+            mus.failed = true;
+            if (mus.timer) clearInterval(mus.timer);
+            mus.timer = null;
+            prefs.music = 'off';
+            const toggle = document.getElementById('sw-music');
+            if (toggle) { toggle.classList.remove('on'); toggle.disabled = true; toggle.title = 'Ambient music is unavailable in this browser session'; toggle.setAttribute('aria-label', 'Ambient music unavailable'); }
+            const volume = document.getElementById('vol'); if (volume) volume.disabled = true;
+            if (mus.ctx) { const ctx = mus.ctx; mus.ctx = null; try { Promise.resolve(ctx.close()).catch(() => {}); } catch (_) {} }
+            console.info('Ambient music is unavailable in this browser session; the site will continue without audio.', error);
+            if (typeof showToast === 'function') showToast('Ambient music could not start on this device. The site will keep working without sound.', 'info');
+        }
+        function musicNote(f, t, dur) {
+            const o = mus.ctx.createOscillator(), g = mus.ctx.createGain();
+            o.type = Math.random() < .3 ? 'triangle' : 'sine'; o.frequency.value = f; o.detune.value = (Math.random() - .5) * 14;
+            g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(.16, t + dur * .35); g.gain.linearRampToValueAtTime(0, t + dur);
+            o.connect(g); g.connect(mus.bus); o.start(t); o.stop(t + dur + .1);
+        }
+        function musicChord() {
+            if (!mus.ctx || mus.ctx.state === 'closed') return;
+            try { const t = mus.ctx.currentTime; CHORDS[mus.i++ % 4].forEach((f, k) => musicNote(f, t + k * .6, 9)); if (Math.random() < .7) musicNote(CHORDS[mus.i % 4][4] * 2, t + 3 + Math.random() * 3, 5); }
+            catch (error) { musicUnavailable(error); }
+        }
+        function musicSync() {
+            const on = prefs.music !== 'off' && !introMusicMuted && !mus.failed, vol = (prefs.vol == null ? 35 : prefs.vol) / 100 * .22;
+            if (on && !mus.ctx && mus.armed) {
+                try {
+                    const C = window.AudioContext || window.webkitAudioContext;
+                    if (!C) throw new Error('Web Audio is not supported');
+                    mus.ctx = new C(); mus.master = mus.ctx.createGain(); mus.master.gain.value = 0; mus.master.connect(mus.ctx.destination);
+                    const lp = mus.ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 900; mus.bus = lp;
+                    const dl = mus.ctx.createDelay(1.5), fb = mus.ctx.createGain(); dl.delayTime.value = .55; fb.gain.value = .5;
+                    lp.connect(mus.master); lp.connect(dl); dl.connect(fb); fb.connect(dl); dl.connect(mus.master);
+                    musicChord(); if (!mus.failed) mus.timer = setInterval(musicChord, 8000);
+                } catch (error) { musicUnavailable(error); }
+            }
+            if (mus.ctx && mus.master) {
+                try {
+                    if (mus.ctx.state !== 'running') Promise.resolve(mus.ctx.resume()).catch(musicUnavailable);
+                    mus.master.gain.setTargetAtTime(on ? vol : 0, mus.ctx.currentTime, .8);
+                } catch (error) { musicUnavailable(error); }
+            }
+            const toggle = document.getElementById('sw-music'), volume = document.getElementById('vol');
+            if (toggle) toggle.classList.toggle('on', on && !mus.failed);
+            if (volume) { volume.value = prefs.vol == null ? 35 : prefs.vol; volume.style.setProperty('--v', (prefs.vol == null ? 35 : prefs.vol) + '%'); }
+        }
+        const _ap = applyPrefs; applyPrefs = function () { _ap(); musicSync(); }; applyPrefs();
+        window.addEventListener('hero-intro-state', e => { introMusicMuted = !!e.detail?.playing; musicSync(); });
+        ['pointerdown', 'keydown'].forEach(ev => addEventListener(ev, () => { if (!mus.armed) { mus.armed = true; musicSync(); } }, { once: true }));
+        document.addEventListener('visibilitychange', () => { if (!mus.ctx) return; try { Promise.resolve(document.hidden ? mus.ctx.suspend() : (prefs.music !== 'off' && mus.ctx.resume())).catch(musicUnavailable); } catch (error) { musicUnavailable(error); } });
+
+        // ================= GUIDED TOUR =================
+        // The tour keeps its original topics, but moves through the real views so each feature is
+        // introduced where it lives. The spotlight follows the selected control as the page changes.
+        const TUT = [
+            { view: 'home-view', sel: '#global-quiz-title', h: 'Welcome to Hero', p: 'Named for Herodotus, the “father of history.” Take a quick guided walk through the places to explore.', tag: 'YOUR FIELD GUIDE' },
+            { view: 'home-view', sel: '#year-toggle', h: 'Choose your tour', p: 'Switch between the 1 Year and 2 Year collections. Try either button now—the highlighted controls stay interactive. Your progress and leaderboards are kept separate.', tag: 'START HERE' },
+            { view: 'home-view', sel: '#mode-pick', h: 'Choose how to play', p: 'Name the Place asks you to identify a marker. Find the Land gives you a name to locate. Revisit the Forgotten practices places you missed.', tag: 'THREE WAYS TO LEARN' },
+            { view: 'leaderboard-view', sel: '#leaderboard-list', h: 'Hall of Heroes', p: 'Compare top scores for both tours and see how your time and accuracy stack up.', tag: 'THE HONOR ROLL' },
+            { view: 'custom-loc-view', sel: '#user-place-name', h: 'Private Charts', p: 'Build a personal study map by searching for places or importing a list of coordinates.', tag: 'MAKE A MAP YOURS' },
+            { view: 'announcements-view', sel: '#announcements-view h2', h: 'Stay in the loop', p: 'Find global announcements here. The Chronicle keeps a record of what has changed.', tag: 'NEWS & UPDATES' },
+            { view: 'ai-view', sel: '#ai-shell .sh-head', h: 'Meet Clio', p: 'Ask the muse of history for explanations, study help, and memory tricks while you explore.', tag: 'YOUR STUDY COMPANION' },
+            { view: 'settings-view', sel: '.st-grid', h: 'Make it yours', p: 'Choose colorways, backgrounds, fonts, and ambient music in Settings and Customs.', tag: 'PERSONALIZE HERO' },
+        ];
+        let tutI = 0, tutSequence = 0, tutPositionHandler = null, tutKeyHandler = null;
+        function tutStart() { tutI = 0; tutShow(); }
+        function tutEnsureUI() {
+            let shield = document.getElementById('tut-shield');
+            if (!shield) {
+                shield = document.createElement('div'); shield.id = 'tut-shield'; shield.setAttribute('aria-hidden', 'true');
+                shield.innerHTML = '<i data-side="top"></i><i data-side="left"></i><i data-side="right"></i><i data-side="bottom"></i>';
+                document.body.appendChild(shield);
+            }
+            let spotlight = document.getElementById('tut-spotlight');
+            if (!spotlight) { spotlight = document.createElement('div'); spotlight.id = 'tut-spotlight'; spotlight.setAttribute('aria-hidden', 'true'); document.body.appendChild(spotlight); }
+            let card = document.getElementById('tut');
+            if (!card) { card = document.createElement('section'); card.id = 'tut'; card.className = 'glass-panel'; document.body.appendChild(card); }
+            return { shield, spotlight, card };
+        }
+        function tutShow() {
+            const sequence = ++tutSequence, step = TUT[tutI], last = tutI === TUT.length - 1;
+            const { shield, spotlight, card } = tutEnsureUI();
+            const reveal = () => {
+                if (sequence !== tutSequence) return;
+                card.innerHTML = `<div class="tut-topline"><span class="tut-mark" aria-hidden="true">H</span><span class="tut-tag"></span><span class="tut-count"></span></div>
+                    <div class="tut-progress" aria-hidden="true"><i></i></div>
+                    <h2 class="tut-title"></h2><p class="tut-copy"></p>
+                    <div class="tut-actions"><button type="button" class="cm-btn ghost" id="tut-skip">End tour</button><span class="tut-action-spacer"></span><button type="button" class="cm-btn ghost" id="tut-back">Back</button><button type="button" class="cm-btn go" id="tut-next">${last ? 'Finish tour' : 'Continue'}</button></div>`;
+                card.setAttribute('role', 'dialog'); card.setAttribute('aria-modal', 'false'); card.setAttribute('aria-labelledby', 'tut-title'); card.setAttribute('aria-describedby', 'tut-copy');
+                card.querySelector('.tut-tag').textContent = step.tag;
+                card.querySelector('.tut-count').textContent = `STEP ${String(tutI + 1).padStart(2, '0')} / ${String(TUT.length).padStart(2, '0')}`;
+                card.querySelector('.tut-progress i').style.width = `${(tutI + 1) / TUT.length * 100}%`;
+                card.querySelector('.tut-title').id = 'tut-title'; card.querySelector('.tut-title').textContent = step.h;
+                card.querySelector('.tut-copy').id = 'tut-copy'; card.querySelector('.tut-copy').textContent = step.p;
+                const back = card.querySelector('#tut-back'); back.hidden = tutI === 0; back.onclick = () => { tutI--; tutShow(); };
+                card.querySelector('#tut-skip').onclick = tutEnd;
+                card.querySelector('#tut-next').onclick = () => { if (last) tutEnd(); else { tutI++; tutShow(); } };
+
+                const target = step.sel && document.querySelector(step.sel);
+                if (target) target.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'smooth' });
+                const panels = Object.fromEntries([...shield.querySelectorAll('[data-side]')].map(panel => [panel.dataset.side, panel]));
+                const setPanel = (side, left, top, width, height) => {
+                    const panel = panels[side];
+                    panel.hidden = width <= 0 || height <= 0;
+                    panel.style.left = `${left}px`; panel.style.top = `${top}px`;
+                    panel.style.width = `${Math.max(0, width)}px`; panel.style.height = `${Math.max(0, height)}px`;
+                };
+                const placeSpotlight = () => {
+                    if (!target || !target.isConnected) {
+                        spotlight.hidden = true;
+                        setPanel('top', 0, 0, innerWidth, innerHeight);
+                        setPanel('left', 0, 0, 0, 0); setPanel('right', 0, 0, 0, 0); setPanel('bottom', 0, 0, 0, 0);
+                        return;
+                    }
+                    const rect = target.getBoundingClientRect(), pad = 9;
+                    if (!rect.width || !rect.height) {
+                        spotlight.hidden = true;
+                        setPanel('top', 0, 0, innerWidth, innerHeight);
+                        setPanel('left', 0, 0, 0, 0); setPanel('right', 0, 0, 0, 0); setPanel('bottom', 0, 0, 0, 0);
+                        return;
+                    }
+                    const width = Math.min(rect.width + pad * 2, innerWidth - 24), height = Math.min(rect.height + pad * 2, innerHeight - 24);
+                    const left = Math.max(12, Math.min(rect.left - pad, innerWidth - width - 12));
+                    const top = Math.max(12, Math.min(rect.top - pad, innerHeight - height - 12));
+                    spotlight.hidden = false; spotlight.style.left = `${left}px`; spotlight.style.top = `${top}px`;
+                    spotlight.style.width = `${width}px`; spotlight.style.height = `${height}px`;
+                    // Four real panels create a square-cornered opening. Only the highlighted
+                    // control is exposed to pointer and keyboard interaction during the tour.
+                    setPanel('top', 0, 0, innerWidth, top);
+                    setPanel('left', 0, top, left, height);
+                    setPanel('right', left + width, top, innerWidth - left - width, height);
+                    setPanel('bottom', 0, top + height, innerWidth, innerHeight - top - height);
+                };
+                if (tutPositionHandler) { window.removeEventListener('resize', tutPositionHandler); window.removeEventListener('scroll', tutPositionHandler, true); }
+                tutPositionHandler = () => requestAnimationFrame(placeSpotlight);
+                window.addEventListener('resize', tutPositionHandler); window.addEventListener('scroll', tutPositionHandler, true);
+                requestAnimationFrame(placeSpotlight); setTimeout(placeSpotlight, 450);
+
+                if (tutKeyHandler) document.removeEventListener('keydown', tutKeyHandler, true);
+                tutKeyHandler = e => {
+                    if (e.key === 'Escape') { e.preventDefault(); tutEnd(); return; }
+                    if (e.key !== 'Tab') return;
+                    const selectors = 'a[href],button:not(:disabled),input:not(:disabled),select:not(:disabled),textarea:not(:disabled),[tabindex]:not([tabindex="-1"])';
+                    const targetControls = target && target.isConnected ? [...(target.matches(selectors) ? [target] : []), ...target.querySelectorAll(selectors)] : [];
+                    const tourControls = [...card.querySelectorAll('button:not([hidden])')];
+                    const controls = [...targetControls, ...tourControls];
+                    const first = controls[0], lastControl = controls[controls.length - 1];
+                    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); lastControl.focus(); }
+                    else if (!e.shiftKey && document.activeElement === lastControl) { e.preventDefault(); first.focus(); }
+                };
+                document.addEventListener('keydown', tutKeyHandler, true);
+                card.querySelector('#tut-next').focus({ preventScroll: true });
+            };
+            if (step.view && fbCurView !== step.view) { switchView(step.view); setTimeout(reveal, 260); }
+            else reveal();
+        }
+        function tutEnd() {
+            ++tutSequence; localStorage.setItem('hero_tut', '1');
+            if (tutPositionHandler) { window.removeEventListener('resize', tutPositionHandler); window.removeEventListener('scroll', tutPositionHandler, true); tutPositionHandler = null; }
+            if (tutKeyHandler) { document.removeEventListener('keydown', tutKeyHandler, true); tutKeyHandler = null; }
+            ['tut', 'tut-shield', 'tut-spotlight'].forEach(id => { const node = document.getElementById(id); if (node) node.remove(); });
+            if (fbCurView !== 'home-view') switchView('home-view');
+        }
+        window.tutMaybe = () => { if (!document.getElementById('intro') && !localStorage.getItem('hero_tut') && consent && document.getElementById('dev-screen').classList.contains('hidden') && document.getElementById('changelog-popup').classList.contains('hidden')) tutShow(); };
+        setTimeout(tutMaybe, 5200);
+
+        // ================= CUSTOM DROPDOWNS (desktop only; phones keep native pickers) =================
+        // csWireSelect is reusable: call it on any <select class="fb-input"> created later (e.g. an admin
+        // tool built after page load) so it gets the same animated dropdown as the ones already on the page.
+        function csSyncAll() { document.querySelectorAll('.cs-wrap').forEach(w => w._sync && w._sync()); }
+        const CS_ENABLED = !matchMedia('(pointer: coarse)').matches && !document.documentElement.classList.contains('is-mobile');
+        function csWireSelect(sel) {
+            if (!CS_ENABLED || !sel || sel.classList.contains('cs-native')) return;
+            let wrap = sel.closest('.fb-select-wrap');
+            if (!wrap) {
+                wrap = document.createElement('div'); wrap.className = 'fb-select-wrap';
+                sel.parentNode.insertBefore(wrap, sel); wrap.appendChild(sel);
+                const chevron = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                chevron.setAttribute('data-lucide', 'chevron-down'); wrap.appendChild(chevron);
+                if (window.lucide) lucide.createIcons();
+            }
+            wrap.classList.add('cs-wrap'); sel.classList.add('cs-native');
+            const btn = document.createElement('button'); btn.type = 'button'; btn.className = 'fb-input cs-btn'; btn.style.cssText = sel.style.cssText;
+            const menu = document.createElement('div'); menu.className = 'cs-menu'; menu.setAttribute('role', 'listbox');
+            const menuId = `hero-select-${++csDropdownId}`; menu.id = menuId;
+            btn.setAttribute('role', 'combobox'); btn.setAttribute('aria-haspopup', 'listbox'); btn.setAttribute('aria-controls', menuId); btn.setAttribute('aria-expanded', 'false');
+            if (sel.getAttribute('aria-label')) btn.setAttribute('aria-label', sel.getAttribute('aria-label'));
+            if (sel.getAttribute('aria-labelledby')) btn.setAttribute('aria-labelledby', sel.getAttribute('aria-labelledby'));
+            const options = [...sel.options].map((op, i) => {
+                const option = document.createElement('div'); option.className = 'cs-opt'; option.setAttribute('role', 'option'); option.dataset.index = String(i);
+                option.style.animationDelay = (i * 18) + 'ms'; option.textContent = op.textContent; option.setAttribute('aria-disabled', String(op.disabled));
+                option.onclick = () => choose(i); option.onmouseenter = () => setActive(i); menu.appendChild(option); return option;
+            });
+            let activeIndex = Math.max(0, sel.selectedIndex);
+            const sync = () => {
+                btn.textContent = sel.options[sel.selectedIndex]?.textContent || 'Choose an option';
+                btn.disabled = sel.disabled;
+                btn.setAttribute('aria-disabled', String(sel.disabled));
+                options.forEach((option, i) => { const selected = i === sel.selectedIndex; option.classList.toggle('on', selected); option.setAttribute('aria-selected', String(selected)); option.tabIndex = i === activeIndex ? 0 : -1; });
+            };
+            const close = (returnFocus = false) => { wrap.classList.remove('open'); btn.setAttribute('aria-expanded', 'false'); if (returnFocus) btn.focus(); };
+            const setActive = i => {
+                if (!options.length) return;
+                let step = ((i % options.length) + options.length) % options.length;
+                for (let tries = 0; tries < options.length && sel.options[step]?.disabled; tries++) step = (step + (i < activeIndex ? options.length - 1 : 1)) % options.length;
+                activeIndex = step; sync(); options[activeIndex]?.focus();
+                options[activeIndex]?.scrollIntoView({ block: 'nearest' });
+            };
+            const choose = i => {
+                if (!sel.options[i] || sel.options[i].disabled) return;
+                sel.selectedIndex = i; sel.dispatchEvent(new Event('change', { bubbles: true })); sync(); close(true);
+            };
+            const open = () => {
+                if (sel.disabled) return;
+                document.querySelectorAll('.cs-wrap.open').forEach(w => {
+                    if (w === wrap) return;
+                    w.classList.remove('open'); w.querySelector('.cs-btn')?.setAttribute('aria-expanded', 'false');
+                });
+                activeIndex = Math.max(0, sel.selectedIndex); wrap.classList.add('open'); btn.setAttribute('aria-expanded', 'true'); sync();
+            };
+            btn.onclick = e => { e.stopPropagation(); if (wrap.classList.contains('open')) close(); else open(); };
+            btn.onkeydown = e => {
+                if (['ArrowDown', 'ArrowUp', 'Home', 'End', 'Enter', ' '].includes(e.key)) e.preventDefault(); else return;
+                if (!wrap.classList.contains('open')) { open(); if (e.key === 'ArrowUp' || e.key === 'End') setActive(options.length - 1); else if (e.key === 'ArrowDown' || e.key === 'Home') setActive(0); return; }
+                if (e.key === 'ArrowDown') setActive(activeIndex + 1); else if (e.key === 'ArrowUp') setActive(activeIndex - 1);
+                else if (e.key === 'Home') setActive(0); else if (e.key === 'End') setActive(options.length - 1); else setActive(activeIndex), choose(activeIndex);
+            };
+            menu.onkeydown = e => {
+                if (e.key === 'ArrowDown') { e.preventDefault(); setActive(activeIndex + 1); }
+                else if (e.key === 'ArrowUp') { e.preventDefault(); setActive(activeIndex - 1); }
+                else if (e.key === 'Home' || e.key === 'End') { e.preventDefault(); setActive(e.key === 'Home' ? 0 : options.length - 1); }
+                else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); choose(activeIndex); }
+                else if (e.key === 'Escape') { e.preventDefault(); close(true); }
+            };
+            sel.addEventListener('change', sync);
+            wrap.append(btn, menu); wrap._sync = sync; sync();
+        }
+        let csDropdownId = 0;
+        window.csWireSelect = csWireSelect;
+        if (CS_ENABLED) {
+            document.querySelectorAll('select').forEach(csWireSelect);
+            document.addEventListener('click', e => document.querySelectorAll('.cs-wrap.open').forEach(w => {
+                if (w.contains(e.target)) return;
+                w.classList.remove('open'); w.querySelector('.cs-btn')?.setAttribute('aria-expanded', 'false');
+            }));
+            document.addEventListener('keydown', e => { if (e.key === 'Escape') document.querySelectorAll('.cs-wrap.open').forEach(w => { w.classList.remove('open'); w.querySelector('.cs-btn')?.setAttribute('aria-expanded', 'false'); w.querySelector('.cs-btn')?.focus(); }); });
+        }
+        const _sv3 = switchView; switchView = function (id) { _sv3(id); if (id === 'review-view') renderReview(); csSyncAll(); missBadge(); if (id === 'editor-view') { const pw = document.getElementById('admin-password'); if (pw && !pw._enterBound) { pw._enterBound = true; pw.addEventListener('keydown', e => { if (e.key === 'Enter') unlockAdmin(); }); } } };
+        const _ym = setYearMode; setYearMode = function (k) { _ym(k); missBadge(); };
