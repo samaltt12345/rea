@@ -1,0 +1,562 @@
+// edge-functions/api/build-boundaries.js  ->  POST /api/build-boundaries
+// Rebuilds content/location-boundaries.geojson entirely on the server and commits it to GitHub, so a
+// steward never needs a terminal, Node, or a file download -- works the same on a Chromebook as anywhere
+// else. This is the easy path; scripts/build-boundaries.mjs (run from a real computer) is the power-user
+// path and uses full 10m detail. This endpoint uses 50m Natural Earth data instead: the 10m admin-1
+// (states/provinces) file alone is ~40MB, far past what a server function can fetch and process in one
+// request, while 50m covers every country/sea/river/lake Hero is likely to use at a fraction of the size.
+//
+// Env vars (EdgeOne Pages project settings), all already configured for other endpoints in this project:
+//   ADMIN_PASSWORD                        same as every other admin-only endpoint
+//   FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY_1..N   same service account as /api/firebase-token;
+//                                          it also needs the "Cloud Datastore Viewer" IAM role so it can read
+//                                          Firestore directly (see BOUNDARIES.md)
+//   FIREBASE_PROJECT_ID (optional)         Firebase project id; otherwise derived from service account
+//   GITHUB_TOKEN, GITHUB_REPOSITORY, DEPLOY_BRANCH (optional)   same as /api/deploy; the token needs
+//                                          contents read/write access
+//   DEPLOY_WEBHOOK_URL (optional)         triggers the live rebuild once committed
+
+const json = (body, status = 200) =>
+  new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
+
+const enc = new TextEncoder();
+
+// ---------- reused from the other endpoints, unchanged ----------
+async function safeEqual(a, b) {
+  const [ha, hb] = await Promise.all([crypto.subtle.digest('SHA-256', enc.encode(a)), crypto.subtle.digest('SHA-256', enc.encode(b))]);
+  const x = new Uint8Array(ha), y = new Uint8Array(hb);
+  let diff = 0;
+  for (let i = 0; i < x.length; i++) diff |= x[i] ^ y[i];
+  return diff === 0;
+}
+async function hmacHex(secret, msg) {
+  const key = await crypto.subtle.importKey('raw', enc.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const sig = await crypto.subtle.sign('HMAC', key, enc.encode(msg));
+  return [...new Uint8Array(sig)].map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+async function validToken(token, secret) {
+  if (typeof token !== 'string') return false;
+  const [expStr, sig] = token.split('.');
+  const exp = Number(expStr);
+  if (!exp || !sig || Date.now() > exp) return false;
+  return safeEqual(sig, await hmacHex(secret, `admin.${exp}`));
+}
+function readPrivateKey(env) {
+  let key = env.FIREBASE_PRIVATE_KEY || '';
+  if (!key) {
+    for (let i = 1; i <= 12; i++) {
+      const part = env[`FIREBASE_PRIVATE_KEY_${i}`];
+      if (!part) break;
+      key += String(part).trim();
+    }
+  }
+  if (!key) return null;
+  return key.replace(/\\n/g, '\n');
+}
+const b64url = (input) => {
+  const bytes = typeof input === 'string' ? enc.encode(input) : new Uint8Array(input);
+  let s = ''; for (let i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
+  return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+};
+async function importPrivateKey(pem) {
+  const body = pem.replace(/["']/g, '').replace(/\\n/g, '\n').replace(/-----(BEGIN|END) PRIVATE KEY-----/g, '').replace(/\s+/g, '');
+  const der = Uint8Array.from(atob(body), (c) => c.charCodeAt(0));
+  return crypto.subtle.importKey('pkcs8', der, { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['sign']);
+}
+
+// ---------- service-account -> Google OAuth2 access token (for the Firestore REST API) ----------
+async function googleAccessToken(email, pk, scope) {
+  const now = Math.floor(Date.now() / 1000);
+  const header = { alg: 'RS256', typ: 'JWT' };
+  const payload = { iss: email, scope, aud: 'https://oauth2.googleapis.com/token', iat: now, exp: now + 3600 };
+  const unsigned = `${b64url(JSON.stringify(header))}.${b64url(JSON.stringify(payload))}`;
+  let key, sig;
+  try {
+    key = await importPrivateKey(pk);
+    sig = await crypto.subtle.sign('RSASSA-PKCS1-v1_5', key, enc.encode(unsigned));
+  } catch (error) {
+    const detail = `Could not read or sign with FIREBASE_PRIVATE_KEY: ${String(error?.message || error).slice(0, 180)}`;
+    throw Object.assign(new Error(detail), { code: 'google_auth_failed', detail });
+  }
+  const assertion = `${unsigned}.${b64url(sig)}`;
+  let r;
+  try {
+    r = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: `grant_type=${encodeURIComponent('urn:ietf:params:oauth:grant-type:jwt-bearer')}&assertion=${assertion}`,
+    });
+  } catch (error) {
+    const detail = `Could not connect to Google OAuth: ${String(error?.message || error).slice(0, 160)}`;
+    throw Object.assign(new Error(detail), { code: 'google_auth_failed', detail });
+  }
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok || !data.access_token) {
+    const detail = [data.error, data.error_description].filter(Boolean).join(': ') || `OAuth token exchange failed (HTTP ${r.status}).`;
+    throw Object.assign(new Error(detail), { code: 'google_auth_failed', status: r.status, detail });
+  }
+  return data.access_token;
+}
+
+// ---------- Firestore REST (document -> plain JS value) ----------
+function fsValue(v) {
+  if (v == null) return null;
+  if ('stringValue' in v) return v.stringValue;
+  if ('integerValue' in v) return Number(v.integerValue);
+  if ('doubleValue' in v) return v.doubleValue;
+  if ('booleanValue' in v) return v.booleanValue;
+  if ('arrayValue' in v) return (v.arrayValue.values || []).map(fsValue);
+  if ('mapValue' in v) return fsFields(v.mapValue.fields || {});
+  return null;
+}
+function fsFields(fields) { const out = {}; for (const k of Object.keys(fields)) out[k] = fsValue(fields[k]); return out; }
+async function firestoreGetDoc(projectId, token, docPath) {
+  const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/${docPath}`;
+  let r;
+  try { r = await fetch(url, { headers: { Authorization: `Bearer ${token}` } }); }
+  catch (error) {
+    const detail = `Could not connect to Firestore for project ${projectId}: ${String(error?.message || error).slice(0, 160)}`;
+    throw Object.assign(new Error(detail), { code: 'firestore_unavailable', detail });
+  }
+  if (r.status === 404) return null;
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) {
+    const detail = data.error?.message || `Firestore request failed (HTTP ${r.status}).`;
+    const reasons = (data.error?.details || []).map((item) => item.reason || item.metadata?.reason || '').filter(Boolean);
+    throw Object.assign(new Error(detail), {
+      code: 'firestore_read_failed', status: r.status,
+      googleStatus: data.error?.status || '', googleReason: reasons.join(', '), detail, docPath,
+    });
+  }
+  return fsFields(data.fields || {});
+}
+
+// ---------- GitHub Contents API ----------
+async function ghGetFile(repository, branch, token, filePath) {
+  const encodedPath = filePath.split('/').map(encodeURIComponent).join('/');
+  let r;
+  try {
+    r = await fetch(`https://api.github.com/repos/${repository}/contents/${encodedPath}?ref=${encodeURIComponent(branch)}`, {
+      headers: { Authorization: `Bearer ${token}`, 'User-Agent': 'hero-build-boundaries', Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' },
+    });
+  } catch (error) {
+    const detail = `Could not connect to GitHub while reading ${filePath}: ${String(error?.message || error).slice(0, 160)}`;
+    throw Object.assign(new Error(detail), { code: 'github_read_failed', detail });
+  }
+  if (r.status === 404) return null;
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw Object.assign(new Error(data.message || `GitHub file read failed (HTTP ${r.status}).`), { code: 'github_read_failed', status: r.status, detail: data.message || '' });
+  let text;
+  if (data.encoding === 'base64' && data.content) {
+    const binary = atob(data.content.replace(/\n/g, ''));
+    const bytes = Uint8Array.from(binary, (c) => c.charCodeAt(0));
+    text = new TextDecoder().decode(bytes);
+  } else if (data.download_url) {
+    const download = await fetch(data.download_url, { headers: { Authorization: `Bearer ${token}`, 'User-Agent': 'hero-build-boundaries' } });
+    if (!download.ok) throw new Error(`github_download_failed:${download.status}`);
+    text = await download.text();
+  } else {
+    throw new Error('github_file_content_unavailable');
+  }
+  return { text, sha: data.sha };
+}
+function b64(input) {
+  const bytes = typeof input === 'string' ? enc.encode(input) : new Uint8Array(input);
+  let s = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return btoa(s);
+}
+async function ghApi(repository, token, path, options = {}, operation = path) {
+  const r = await fetch(`https://api.github.com/repos/${repository}/${path}`, {
+    ...options,
+    headers: {
+      Accept: 'application/vnd.github+json',
+      Authorization: `Bearer ${token}`,
+      'User-Agent': 'hero-build-boundaries',
+      'X-GitHub-Api-Version': '2022-11-28',
+      ...(options.body ? { 'Content-Type': 'application/json' } : {}),
+      ...options.headers,
+    },
+  });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw Object.assign(new Error(data.message || `GitHub request failed while trying to ${operation} (HTTP ${r.status}).`), { status: r.status, operation, detail: data.message || '' });
+  return data;
+}
+async function ghCommitFiles(repository, branch, token, files, message) {
+  const encodedBranch = encodeURIComponent(branch);
+  const refPath = `git/ref/heads/${encodedBranch}`;
+  const updateRefPath = `git/refs/heads/${encodedBranch}`;
+  const ref = await ghApi(repository, token, refPath, {}, `read branch ref ${branch}`);
+  const parentSha = ref.object.sha;
+  const parent = await ghApi(repository, token, `git/commits/${parentSha}`, {}, 'read the current branch commit');
+  const blobs = await Promise.all(files.map(async ({ path, text }) => ({
+    path,
+    sha: (await ghApi(repository, token, 'git/blobs', {
+      method: 'POST', body: JSON.stringify({ content: b64(text), encoding: 'base64' }),
+    }, `upload ${path}`)).sha,
+  })));
+  const tree = await ghApi(repository, token, 'git/trees', {
+    method: 'POST',
+    body: JSON.stringify({
+      base_tree: parent.tree.sha,
+      tree: blobs.map(({ path, sha }) => ({ path, mode: '100644', type: 'blob', sha })),
+    }),
+  }, 'create the boundary commit tree');
+  const commit = await ghApi(repository, token, 'git/commits', {
+    method: 'POST', body: JSON.stringify({ message, tree: tree.sha, parents: [parentSha] }),
+  }, 'create the boundary commit');
+  await ghApi(repository, token, updateRefPath, { method: 'PATCH', body: JSON.stringify({ sha: commit.sha, force: false }) }, `update branch ${branch}`);
+  return commit.sha;
+}
+
+const fetchJson = async (url) => {
+  let r;
+  try { r = await fetch(url, { headers: { 'User-Agent': 'Hero-boundary-curator/1.0' } }); }
+  catch (error) {
+    const detail = `Could not connect to ${url.split('/').pop()}: ${String(error?.message || error).slice(0, 160)}`;
+    throw Object.assign(new Error(detail), { code: 'map_data_fetch_failed', detail });
+  }
+  if (!r.ok) throw Object.assign(new Error(`Map data download failed for ${url.split('/').pop()} (HTTP ${r.status}).`), { code: 'map_data_fetch_failed', status: r.status, detail: `Source returned HTTP ${r.status}.` });
+  try { return await r.json(); }
+  catch { throw Object.assign(new Error(`Map data file ${url.split('/').pop()} was not valid JSON.`), { code: 'map_data_invalid', detail: url.split('/').pop() }); }
+};
+
+// ---------- matching engine ----------
+const NE_ROOT = 'https://raw.githubusercontent.com/nvkelso/natural-earth-vector/v5.1.2/geojson/';
+const NE_FILES = { countries: 'ne_50m_admin_0_countries.geojson', provinces: 'ne_50m_admin_1_states_provinces.geojson', lakes: 'ne_50m_lakes.geojson', marine: 'ne_50m_geography_marine_polys.geojson', rivers: 'ne_50m_rivers_lake_centerlines.geojson', regions: 'ne_50m_geography_regions_polys.geojson' };
+const HISTORICAL_INDEX = 'https://raw.githubusercontent.com/aourednik/historical-basemaps/master/index.json';
+
+const normalize = (value) => String(value ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase().replace(/&/g, ' and ').replace(/[^a-z0-9]+/g, ' ').trim().replace(/\s+/g, ' ');
+const simplify = (value) => normalize(value).replace(/\b(the|river|rivers|lake|lakes|sea|seas|ocean|oceans|gulf|bay|strait|channel|island|islands|mountains|mountain|desert|peninsula|empire|kingdom|dynasty|caliphate|sultanate|republic)\b/g, ' ').replace(/\s+/g, ' ').trim();
+function stableHash(value) {
+  let h1 = 0xdeadbeef ^ value.length, h2 = 0x41c6ce57 ^ value.length;
+  for (let i = 0; i < value.length; i++) {
+    const ch = value.charCodeAt(i);
+    h1 = Math.imul(h1 ^ ch, 2654435761); h2 = Math.imul(h2 ^ ch, 1597334677);
+  }
+  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+  return (h2 >>> 0).toString(16).padStart(8, '0') + (h1 >>> 0).toString(16).padStart(8, '0').slice(0, 6);
+}
+const hasYear = (value) => value != null && value !== '' && Number.isInteger(Number(value));
+const nameKeys = /^(name|name_|name$|admin$|admin_|formal_en$|sovereignt$|name_alt$|name_long$|adm0_name$|name_1$|name_2$|region_un$|region_wb$)/i;
+const namesOf = (feature) => { const out = new Set(); for (const [key, value] of Object.entries(feature.properties || {})) { if (!nameKeys.test(key) || typeof value !== 'string') continue; for (const name of value.split(/[|;]/)) if (normalize(name)) out.add(normalize(name)); } return out; };
+const pointOnSegment = (x, y, a, b) => { const dx = b[0] - a[0], dy = b[1] - a[1]; const cross = (x - a[0]) * dy - (y - a[1]) * dx; if (Math.abs(cross) > 1e-9) return false; const dot = (x - a[0]) * dx + (y - a[1]) * dy; return dot >= -1e-9 && dot <= dx * dx + dy * dy + 1e-9; };
+const inRing = (point, ring) => { const [x, y] = point; let inside = false; for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) { const a = ring[j], b = ring[i]; if (pointOnSegment(x, y, a, b)) return true; if (((a[1] > y) !== (b[1] > y)) && x < ((b[0] - a[0]) * (y - a[1])) / (b[1] - a[1]) + a[0]) inside = !inside; } return inside; };
+const inPolygon = (point, polygon) => inRing(point, polygon[0]) && !polygon.slice(1).some((hole) => inRing(point, hole));
+const boundsCache = new WeakMap();
+const boundsOf = (feature) => {
+  if (boundsCache.has(feature)) return boundsCache.get(feature);
+  if (Array.isArray(feature.bbox) && feature.bbox.length >= 4) { boundsCache.set(feature, feature.bbox); return feature.bbox; }
+  const bounds = [Infinity, Infinity, -Infinity, -Infinity];
+  const visit = (node) => { if (!Array.isArray(node)) return; if (typeof node[0] === 'number' && typeof node[1] === 'number') { bounds[0] = Math.min(bounds[0], node[0]); bounds[1] = Math.min(bounds[1], node[1]); bounds[2] = Math.max(bounds[2], node[0]); bounds[3] = Math.max(bounds[3], node[1]); return; } node.forEach(visit); };
+  visit(feature.geometry?.coordinates);
+  boundsCache.set(feature, bounds); return bounds;
+};
+const contains = (feature, loc) => {
+  const point = [Number(loc.lng), Number(loc.lat)], geometry = feature.geometry;
+  if (!geometry || !Number.isFinite(point[0]) || !Number.isFinite(point[1])) return false;
+  const [west, south, east, north] = boundsOf(feature);
+  if (point[0] < west || point[0] > east || point[1] < south || point[1] > north) return false;
+  const polygons = geometry.type === 'Polygon' ? [geometry.coordinates] : geometry.type === 'MultiPolygon' ? geometry.coordinates : [];
+  return polygons.some((polygon) => inPolygon(point, polygon));
+};
+const getProperty = (p, keys) => { for (const key of keys) if (typeof p[key] === 'string' && p[key].trim()) return p[key].trim(); return ''; };
+const kindOf = (loc) => {
+  const label = `${loc.name || ''} ${loc.category || ''} ${loc.boundaryType || ''}`.toLowerCase();
+  // The modern country name contains "Kingdom"; do not require a historical year for it.
+  if (normalize(loc.name) === 'united kingdom' && !/historical|historic|ancient|empire/.test(normalize(loc.boundaryType))) return 'land';
+  // Quiz years can describe when a city or sea appears in a question; they do
+  // not by themselves mean the requested outline is a historical empire.
+  if (/empire|kingdom|dynasty|caliphate|sultanate|historical|historic|ancient|polity|civilization/.test(label)) return 'historic';
+  if (/route|road|trade|silk/.test(label)) return 'route';
+  if (/river|stream/.test(label)) return 'river';
+  if (/lake|reservoir/.test(label)) return 'lake';
+  if (/sea|ocean|gulf|bay|strait|channel|current|marine|waterway/.test(label)) return 'marine';
+  if (/region|continent/.test(label)) return 'region';
+  return 'land';
+};
+const layerPriority = (kind) => ({ land: ['countries', 'provinces', 'regions'], region: ['regions', 'provinces', 'countries'], lake: ['lakes', 'rivers', 'marine'], river: ['rivers', 'lakes', 'marine'], marine: ['marine', 'lakes', 'rivers'], route: [], historic: [] }[kind] || []);
+const aliasesFrom = (loc, override) => [...new Set([loc.name, ...(Array.isArray(loc.aliases) ? loc.aliases : []), ...(Array.isArray(override?.aliases) ? override.aliases : [])].map(normalize).filter(Boolean))];
+const regionHint = (loc, feature) => {
+  const p = feature?.properties || {};
+  if (loc.region) return String(loc.region);
+  if (loc.continent) return String(loc.continent);
+  if (loc.country) return String(loc.country);
+  const local = getProperty(p, ['NAME_1', 'name_1', 'ADM1_NAME']);
+  const country = getProperty(p, ['ADM0_NAME', 'NAME_0', 'admin', 'ADMIN']);
+  if (local && country && normalize(local) !== normalize(country)) return `${local}, ${country}`;
+  return getProperty(p, ['CONTINENT', 'REGION_UN', 'REGION_WB', 'REGION', 'ADM0_NAME', 'ADMIN', 'NAME_0']);
+};
+
+async function buildBoundaries({ locations, overrides, manualFeatureFiles }) {
+  const findOverride = (loc) => overrides.find((row) => (row.locationId && row.locationId === loc.id) || (row.name && normalize(row.name) === normalize(loc.name)));
+  const neededLayers = new Set();
+  for (const loc of locations) {
+    const override = findOverride(loc);
+    if (override?.file || override?.source === 'historical' || kindOf(loc) === 'historic') continue;
+    for (const layer of layerPriority(kindOf(loc))) neededLayers.add(layer);
+  }
+  const naturalEarth = Object.fromEntries(await Promise.all([...neededLayers].map(async (layer) => [layer, await fetchJson(`${NE_ROOT}${NE_FILES[layer]}`)])));
+  const historicalLocations = locations.filter((loc) => {
+    const override = findOverride(loc);
+    return !override?.file && (kindOf(loc) === 'historic' || override?.source === 'historical') && hasYear(override?.year ?? loc.year);
+  });
+  const historicalIndex = historicalLocations.length ? await fetchJson(HISTORICAL_INDEX) : [];
+  const historicByYear = new Map();
+  for (const entry of Array.isArray(historicalIndex) ? historicalIndex : historicalIndex.years || historicalIndex.maps || []) {
+    const year = Number(entry.year);
+    if (Number.isInteger(year) && entry.filename) historicByYear.set(year, entry.filename);
+  }
+  const yearsNeeded = new Set(historicalLocations.map((loc) => Number(findOverride(loc)?.year ?? loc.year)));
+  const closestHistoricalYear = (year) => [...historicByYear.keys()].sort((a, b) => Math.abs(a - year) - Math.abs(b - year) || a - b)[0];
+  const historicalFiles = new Map();
+  for (const year of yearsNeeded) {
+    const availableYear = closestHistoricalYear(year); if (availableYear == null) continue;
+    const filename = historicByYear.get(availableYear);
+    if (!historicalFiles.has(filename)) historicalFiles.set(filename, { year: availableYear, data: null });
+  }
+  await Promise.all([...historicalFiles.entries()].map(async ([filename, value]) => {
+    value.data = await fetchJson(`https://raw.githubusercontent.com/aourednik/historical-basemaps/master/geojson/${filename}`);
+  }));
+
+  const featureRows = new Map(), locationIndex = {}, review = [];
+  const layerRows = Object.entries(naturalEarth).map(([layer, data]) => [layer, (data.features || []).map((feature, index) => ({ layer, feature, index, names: namesOf(feature) }))]);
+  const historicRows = new Map([...historicalFiles.entries()].map(([filename, value]) => [filename, (value.data.features || []).map((feature, index) => ({ layer: 'historical', feature, index, names: namesOf(feature), filename, year: value.year }))]));
+  const locationKey = (loc, index) => `${loc.tour || 'default'}:${loc.id || stableHash(`${loc.name}|${loc.lat}|${loc.lng}|${index}`)}`;
+  const addFeature = (loc, locKey, row, matchType, kind, year, hintOverride) => {
+    const p = row.feature.properties || {};
+    const sourceName = getProperty(p, ['NAME', 'name', 'NAME_1', 'ADMIN', 'NAME_LONG', 'name_en']) || `${row.layer}-${row.index}`;
+    const sourceIdentity = row.feature.id || p.ne_id || p.NE_ID || p.adm1_code || p.iso_a3 || p.ISO_A3 || sourceName;
+    const featureId = `b_${stableHash(`${row.layer}|${sourceIdentity}|${year || ''}`)}`;
+    if (!featureRows.has(featureId)) {
+      const copy = JSON.parse(JSON.stringify(row.feature));
+      copy.id = featureId;
+      copy.properties = { ...p, heroBoundaryId: featureId, heroLayer: row.layer, heroYear: year || null };
+      featureRows.set(featureId, copy);
+    }
+    const feature = featureRows.get(featureId);
+    feature.properties.heroLocationIds = [...new Set([...(feature.properties.heroLocationIds || []), locKey])];
+    const featureIds = [...new Set([...(locationIndex[locKey]?.featureIds || []), featureId])];
+    locationIndex[locKey] = { featureIds, matchType, kind, year: year || null, hintRegion: hintOverride || regionHint(loc, row.feature) || '' };
+  };
+
+  for (let locIndex = 0; locIndex < locations.length; locIndex++) {
+    const loc = locations[locIndex], kind = kindOf(loc), locKey = locationKey(loc, locIndex), override = findOverride(loc);
+    const overrideLat = Number(override?.lat), overrideLng = Number(override?.lng);
+    const boundaryLoc = Number.isFinite(overrideLat) && Number.isFinite(overrideLng)
+      ? { ...loc, lat: overrideLat, lng: overrideLng }
+      : loc;
+    const year = hasYear(override?.year) ? Number(override.year) : hasYear(loc.year) ? Number(loc.year) : null;
+    if (override?.file) {
+      const manual = manualFeatureFiles[override.file];
+      const manualFeatures = manual && (manual.type === 'FeatureCollection' ? manual.features : manual.type === 'Feature' ? [manual] : []);
+      const row = manualFeatures && manualFeatures[Number(override.featureIndex) || 0];
+      if (row) addFeature(loc, locKey, { layer: 'manual', feature: row, index: Number(override.featureIndex) || 0 }, 'manual', override.kind || kind, year, override.hintRegion);
+      else review.push({ id: loc.id || '', name: loc.name, category: loc.category || '', year, status: 'manual-feature-not-found', file: override.file });
+      continue;
+    }
+    if (kind === 'historic' || override?.source === 'historical') {
+      if (!Number.isInteger(year)) { review.push({ id: loc.id || '', name: loc.name, category: loc.category || '', status: 'missing-historical-year' }); continue; }
+      const availableYear = closestHistoricalYear(year);
+      const filename = historicByYear.get(availableYear);
+      const rows = historicRows.get(filename) || [];
+      const aliases = aliasesFrom(loc, override);
+      const matches = rows.filter((row) => aliases.some((alias) => row.names.has(alias) || [...row.names].some((candidate) => simplify(candidate) === simplify(alias))));
+      if (matches.length) {
+        const sorted = matches.sort((a, b) => Number(contains(b.feature, boundaryLoc)) - Number(contains(a.feature, boundaryLoc)));
+        const selectedRows = override?.combineMatches ? sorted : sorted.slice(0, 1);
+        selectedRows.forEach((selected) => addFeature(boundaryLoc, locKey, selected, availableYear === year ? 'name' : 'nearest-historical-year', 'historic', availableYear, override?.hintRegion));
+        if (availableYear !== year) review.push({ id: loc.id || '', name: loc.name, requestedYear: year, selectedYear: availableYear, status: 'historical-year-review' });
+      } else review.push({ id: loc.id || '', name: loc.name, category: loc.category || '', year, status: 'historical-name-not-found' });
+      continue;
+    }
+    const aliases = aliasesFrom(loc, override);
+    const simplifiedAliases = new Set(aliases.map(simplify).filter(Boolean));
+    const preferred = layerPriority(kind);
+    const ordered = [...layerRows].sort((a, b) => { const ai = preferred.indexOf(a[0]), bi = preferred.indexOf(b[0]); return (ai < 0 ? 999 : ai) - (bi < 0 ? 999 : bi); });
+    const matches = [];
+    for (const [layer, rows] of ordered) for (const row of rows) {
+      const exact = aliases.some((alias) => row.names.has(alias));
+      const soft = !exact && [...row.names].some((candidate) => simplifiedAliases.has(simplify(candidate)));
+      if (!exact && !soft) continue;
+      const categoryBoost = preferred.includes(layer) ? (preferred.length - preferred.indexOf(layer)) * 10 : 0;
+      matches.push({ ...row, score: (exact ? 10000 : 7000) + (contains(row.feature, boundaryLoc) ? 5000 : 0) + categoryBoost });
+    }
+    if (matches.length) { matches.sort((a, b) => b.score - a.score || a.layer.localeCompare(b.layer)); addFeature(boundaryLoc, locKey, matches[0], 'name', kind, null, override?.hintRegion); continue; }
+
+    const isLegendary = /legend|lost (city|cities|continent)|phantom|mythical|fictional/.test(`${loc.name} ${loc.category}`.toLowerCase());
+    const noPointFallback = isLegendary || kind === 'historic' || kind === 'route' || /river|lake|sea|ocean|gulf|bay|strait|marine|water/.test(`${loc.name} ${loc.category}`.toLowerCase());
+    const pointFeature = noPointFallback ? null : ['provinces', 'countries'].flatMap((layer) => layerRows.find((row) => row[0] === layer)?.[1] || []).find((row) => contains(row.feature, boundaryLoc));
+    if (pointFeature) { addFeature(boundaryLoc, locKey, pointFeature, 'point-fallback', kind, null, override?.hintRegion); review.push({ id: loc.id || '', name: loc.name, category: loc.category || '', status: 'point-fallback-review', suggestedBoundary: getProperty(pointFeature.feature.properties || {}, ['NAME_1', 'ADM0_NAME', 'ADMIN', 'NAME']) }); }
+    else review.push({ id: loc.id || '', name: loc.name, category: loc.category || '', year: year ?? undefined, status: 'not-matched' });
+  }
+
+  return {
+    bundle: { type: 'FeatureCollection', metadata: { naturalEarth: 'v5.1.2 50m (public domain)', historicalBasemaps: 'aourednik/historical-basemaps', builtVia: 'build-boundaries edge function', builtAt: new Date().toISOString() }, locations: locationIndex, features: [...featureRows.values()] },
+    unmatched: { generatedAt: new Date().toISOString(), reviewed: review.length, locations: review },
+  };
+}
+
+export async function onRequestPost(context) {
+  let stage = 'checking configuration';
+  const env = context.env || {};
+  const secret = env.ADMIN_PASSWORD,
+        githubToken = env.GITHUB_TOKEN,
+        repository = env.GITHUB_REPOSITORY || '',
+        branch = env.DEPLOY_BRANCH || 'main',
+        hook = env.DEPLOY_WEBHOOK_URL;
+
+  const email = env.FIREBASE_CLIENT_EMAIL,
+        pk = readPrivateKey(env);
+
+  // Validate critical keys (DEPLOY_WEBHOOK_URL is non-blocking)
+  const missing = [
+    !secret && 'ADMIN_PASSWORD',
+    !githubToken && 'GITHUB_TOKEN',
+    !repository && 'GITHUB_REPOSITORY',
+    !email && 'FIREBASE_CLIENT_EMAIL',
+    !pk && 'FIREBASE_PRIVATE_KEY_1..N'
+  ].filter(Boolean);
+
+  if (missing.length) {
+    return json({ ok: false, error: 'not_configured', missing }, 500);
+  }
+
+  if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repository) || !/^[A-Za-z0-9_.-]+(?:\/[A-Za-z0-9_.-]+)*$/.test(branch)) {
+    return json({ ok: false, error: 'invalid_github_config', repository, branch }, 500);
+  }
+
+  let body;
+  try { body = await context.request.json(); } catch { return json({ ok: false, error: 'bad_request' }, 400); }
+  let authorized;
+  try { authorized = await validToken(body && body.token, secret); }
+  catch (error) {
+    const detail = String(error?.message || error).slice(0, 220);
+    console.error('[boundary-build] token validation failed:', detail);
+    return json({ ok: false, error: 'token_validation_failed', detail }, 500);
+  }
+  if (!authorized) return json({ ok: false, error: 'unauthorized' }, 401);
+
+  try {
+    stage = 'validating Firebase project configuration';
+    const serviceAccountProject = (email.split('@')[1] || '').split('.')[0];
+    const configuredProject = String(env.FIREBASE_PROJECT_ID || '').trim();
+    if (configuredProject && serviceAccountProject && configuredProject !== serviceAccountProject) {
+      return json({ ok: false, error: 'firebase_project_mismatch', configuredProject, serviceAccountProject }, 409);
+    }
+    const projectId = configuredProject || serviceAccountProject;
+    const appId = typeof body.appId === 'string' ? body.appId : '';
+    if (!/^[A-Za-z0-9_-]{1,100}$/.test(appId)) return json({ ok: false, error: 'missing_app_id' }, 400);
+    if (!/^[a-z][a-z0-9-]{4,28}[a-z0-9]$/.test(projectId || '')) {
+      return json({ ok: false, error: 'invalid_firebase_project', detail: 'Could not derive a valid Firebase project id from FIREBASE_CLIENT_EMAIL. Set FIREBASE_PROJECT_ID to the Firebase project id.' }, 500);
+    }
+
+    stage = 'authenticating with Google';
+    const accessToken = await googleAccessToken(email, pk, 'https://www.googleapis.com/auth/cloud-platform');
+
+    stage = 'reading quiz locations from Firestore';
+    const base = `artifacts/${appId}/public/data`;
+    const [defaultQuiz, twoYearQuiz] = await Promise.all([
+      firestoreGetDoc(projectId, accessToken, `${base}/globalSettings/defaultQuiz`),
+      firestoreGetDoc(projectId, accessToken, `${base}/globalSettings/twoYearQuiz`),
+    ]).catch((error) => {
+      if (error?.code !== 'firestore_read_failed') throw error;
+      const googleText = `${error.googleStatus} ${error.googleReason} ${error.detail}`.toLowerCase();
+      let code = 'firestore_read_failed', message = `Firestore read failed in project ${projectId} (HTTP ${error.status}).`;
+      if (error.status === 403 && /service_disabled|has not been used|api.*not enabled|api.*disabled/.test(googleText)) {
+        code = 'firestore_api_disabled';
+        message = `Google says the Firestore API is disabled for project ${projectId}. Enable firestore.googleapis.com for that project.`;
+      } else if (error.status === 403 && /scope|insufficient authentication/.test(googleText)) {
+        code = 'firestore_scope_denied';
+        message = `Google rejected the OAuth scope while reading ${error.docPath || 'the quiz document'} in project ${projectId}.`;
+      } else if (error.status === 403) {
+        code = 'firestore_permission_denied';
+        message = `Firestore returned PERMISSION_DENIED reading "${error.docPath || 'the quiz document'}" in project "${projectId}" for service account "${email}". Grant Cloud Datastore Viewer (roles/datastore.viewer) to this exact service account on the Google Cloud project.`;
+      } else if (error.status === 401) {
+        code = 'firestore_auth_failed';
+        message = `Firestore rejected the Google access token for project ${projectId}. Check the service-account private key and redeploy the EdgeOne function.`;
+      } else if (error.status === 404) {
+        code = 'firestore_path_not_found';
+        message = `Firestore could not find the requested quiz document in project ${projectId}. Check the app id and globalSettings quiz documents.`;
+      } else if (error.status === 429 || error.status >= 500) {
+        code = 'firestore_unavailable';
+        message = `Firestore could not serve the read for project ${projectId} (HTTP ${error.status}). Try again shortly.`;
+      }
+      if (error.detail) message += ` Google API detail: ${String(error.detail).slice(0, 240)}`;
+      throw Object.assign(new Error(message), { code, status: error.status, detail: error.detail });
+    });
+
+    const locations = [
+      ...((Array.isArray(defaultQuiz?.locations) ? defaultQuiz.locations : []).filter((l) => l && typeof l === 'object').map((l) => ({ ...l, tour: 'default' }))),
+      ...((Array.isArray(twoYearQuiz?.locations) ? twoYearQuiz.locations : []).filter((l) => l && typeof l === 'object').map((l) => ({ ...l, tour: 'twoyear' }))),
+    ];
+    if (!locations.length) {
+      const quizStatus = (doc, path) => doc
+        ? `${path} exists, but its locations field is missing, empty, or not an array.`
+        : `${path} was not found.`;
+      return json({
+        ok: false, error: 'no_locations',
+        detail: `No quiz locations were read. 1 Year: ${quizStatus(defaultQuiz, `${base}/globalSettings/defaultQuiz`)} 2 Year: ${quizStatus(twoYearQuiz, `${base}/globalSettings/twoYearQuiz`)}`,
+      }, 400);
+    }
+
+    stage = 'reading boundary overrides from GitHub';
+    const overridesFile = await ghGetFile(repository, branch, githubToken, 'content/location-boundary-overrides.json');
+    let overrides = [];
+    try {
+      const parsed = overridesFile ? JSON.parse(overridesFile.text) : [];
+      overrides = Array.isArray(parsed) ? parsed : parsed.overrides;
+      if (!Array.isArray(overrides)) throw new Error('invalid_shape');
+    } catch {
+      return json({ ok: false, error: 'invalid_boundary_overrides', detail: 'content/location-boundary-overrides.json must contain an array of override entries.' }, 400);
+    }
+    const manualFiles = [...new Set(overrides.filter((o) => o?.file).map((o) => o.file))];
+    const isSafeManualFile = (file) => typeof file === 'string'
+      && file.startsWith('manual/')
+      && /^manual\/[A-Za-z0-9._/-]+\.geojson$/.test(file)
+      && !file.split('/').some((part) => part === '.' || part === '..');
+    if (manualFiles.some((file) => !isSafeManualFile(file))) {
+      return json({ ok: false, error: 'invalid_manual_boundary_path', detail: 'Manual boundary overrides must point to a .geojson file inside content/manual/.' }, 400);
+    }
+    const manualFeatureFiles = {};
+    for (const file of manualFiles) {
+      const f = await ghGetFile(repository, branch, githubToken, `content/${file}`);
+      if (!f) continue;
+      try { manualFeatureFiles[file] = JSON.parse(f.text); }
+      catch { return json({ ok: false, error: 'invalid_manual_boundary', detail: `${file} is not valid GeoJSON JSON.` }, 400); }
+    }
+
+    stage = 'downloading map data and matching boundaries';
+    const { bundle, unmatched } = await buildBoundaries({ locations, overrides, manualFeatureFiles });
+    const direct = Object.values(bundle.locations).filter((e) => e.matchType === 'name' || e.matchType === 'manual').length;
+    const matched = Object.keys(bundle.locations).length;
+    let commitSha;
+    try {
+      stage = 'committing boundary files to GitHub';
+      commitSha = await ghCommitFiles(repository, branch, githubToken, [
+        { path: 'content/location-boundaries.geojson', text: JSON.stringify(bundle) },
+        { path: 'content/location-boundaries-unmatched.json', text: JSON.stringify(unmatched, null, 2) },
+      ], 'Rebuild location boundaries (from the Stewards panel)');
+    } catch (error) {
+      const detail = String(error.detail || error.message || error).slice(0, 220);
+      console.error('[boundary-build] GitHub commit failed:', error.operation || 'unknown GitHub operation', error.status || 0, detail);
+      return json({ ok: false, error: 'github_failed', status: error.status || 0, operation: error.operation || '', repository, branch, detail }, 502);
+    }
+
+    if (hook) {
+      try { await fetch(hook, { method: 'POST' }); }
+      catch (error) {
+        // Log webhook error silently so it doesn't fail the build execution if optional
+        console.warn('Deploy webhook trigger failed:', error);
+      }
+    }
+
+    return json({ ok: true, commitSha, branch, total: locations.length, matched, direct, unmatched: unmatched.locations });
+  } catch (e) {
+    const detail = String(e?.message || e).slice(0, 500);
+    const code = e?.code || 'build_failed';
+    console.error('[boundary-build] failed:', stage, code, detail);
+    return json({ ok: false, error: code, status: e?.status || 0, stage, detail: `${stage}: ${detail}` }, 500);
+  }
+}

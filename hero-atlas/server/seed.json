@@ -1,0 +1,1279 @@
+{
+  "_comment": "Initial data for the local Hero backend, captured from heroapp.edgeone.dev on 2026-11-23. Delete hero/.data to reseed.",
+  "docs": {
+    "artifacts/{appId}/public/data/globalSettings/defaultQuiz": {
+      "title": "European Geography",
+      "message": "",
+      "locations": [
+        {
+          "id": "loc_4omwqa5xo",
+          "name": "Atlantic Ocean",
+          "category": "Bodies of Water",
+          "type": "Ocean",
+          "lat": 45,
+          "lng": -25,
+          "region": "Global",
+          "aliases": [
+            "atlantic"
+          ],
+          "description": "Ocean separating the Americas from Europe and Africa.",
+          "why": "Highway of the Columbian Exchange and the Atlantic slave trade.",
+          "radiusKm": 6966,
+          "bboxes": [
+            [
+              -58,
+              -70,
+              68,
+              15
+            ]
+          ]
+        },
+        {
+          "id": "loc_zbnrw6vth",
+          "name": "Adriatic Sea",
+          "category": "Bodies of Water",
+          "type": "Sea",
+          "lat": 43,
+          "lng": 15.5,
+          "region": "Southern Europe",
+          "aliases": [
+            "adriatic"
+          ],
+          "description": "Sea between Italy and the Balkans.",
+          "why": "Made Venice a maritime superpower.",
+          "radiusKm": 337,
+          "bboxes": [
+            [
+              39.7,
+              12,
+              45.8,
+              19.5
+            ]
+          ]
+        },
+        {
+          "id": "loc_o4s34rfd3",
+          "name": "Aegean Sea",
+          "category": "Bodies of Water",
+          "type": "Sea",
+          "lat": 39,
+          "lng": 25,
+          "region": "Between Greece & Turkey",
+          "aliases": [
+            "aegean"
+          ],
+          "description": "Island-filled sea between Greece and Anatolia.",
+          "why": "Heart of Minoan, Mycenaean, and classical Greek civilization.",
+          "radiusKm": 293,
+          "bboxes": [
+            [
+              35.5,
+              22.8,
+              40.8,
+              27
+            ]
+          ]
+        },
+        {
+          "id": "loc_1n351uojm",
+          "name": "Albania",
+          "category": "Countries",
+          "type": "Country",
+          "lat": 41.153332,
+          "lng": 20.168331,
+          "region": "Europe",
+          "aliases": [],
+          "description": "Balkan country on the Adriatic and Ionian seas.",
+          "why": "Connects the western Balkans to Mediterranean sea routes.",
+          "radiusKm": 167,
+          "bboxes": [
+            [
+              39.64,
+              19.26,
+              42.66,
+              21.06
+            ]
+          ]
+        },
+        {
+          "id": "loc_fva5t3rnn",
+          "name": "Andorra",
+          "category": "Countries",
+          "type": "Country",
+          "lat": 42.546245,
+          "lng": 1.601554,
+          "region": "Europe",
+          "aliases": [],
+          "description": "Small landlocked country in the Pyrenees between France and Spain.",
+          "why": "Its mountain passes link the Iberian Peninsula with France.",
+          "radiusKm": 16,
+          "bboxes": [
+            [
+              42.43,
+              1.41,
+              42.66,
+              1.79
+            ]
+          ]
+        },
+        {
+          "id": "loc_qq6tws35u",
+          "name": "Austria",
+          "category": "Countries",
+          "type": "Country",
+          "lat": 47.516231,
+          "lng": 14.550072,
+          "region": "Central Europe",
+          "aliases": [],
+          "description": "Alpine country on the Danube.",
+          "why": "Core of the Habsburg Empire.",
+          "radiusKm": 289,
+          "bboxes": [
+            [
+              46.4,
+              9.5,
+              49,
+              17.2
+            ]
+          ]
+        },
+        {
+          "id": "loc_1dkzdtcyu",
+          "name": "Bay of Biscay",
+          "category": "Bodies of Water",
+          "type": "Sea",
+          "lat": 45.5,
+          "lng": -4.5,
+          "region": "Northern Atlantic / Europe",
+          "aliases": [],
+          "description": "Atlantic bay west of France and north of Spain.",
+          "why": "Its coasts link the Iberian Peninsula and western France.",
+          "radiusKm": 308,
+          "bboxes": [
+            [
+              43.3,
+              -9,
+              48.5,
+              -1.1
+            ]
+          ]
+        },
+        {
+          "id": "loc_jiytq9cmg",
+          "name": "Baltic Sea",
+          "category": "Bodies of Water",
+          "type": "Sea",
+          "lat": 58.5,
+          "lng": 19.5,
+          "region": "Northern Europe",
+          "aliases": [],
+          "description": "Sea of northern Europe.",
+          "why": "Center of Viking and Hanseatic trade.",
+          "radiusKm": 691,
+          "bboxes": [
+            [
+              53.5,
+              10,
+              66,
+              30
+            ]
+          ]
+        },
+        {
+          "id": "loc_zyifasili",
+          "name": "Belarus",
+          "category": "Countries",
+          "type": "Country",
+          "lat": 53.709807,
+          "lng": 27.953389,
+          "region": "Europe",
+          "aliases": [],
+          "description": "Landlocked country east of Poland and north of Ukraine.",
+          "why": "Lies on the lowland corridor between central Europe and Russia.",
+          "radiusKm": 316,
+          "bboxes": [
+            [
+              51.26,
+              23.18,
+              56.17,
+              32.78
+            ]
+          ]
+        },
+        {
+          "id": "loc_jdwkdje3x",
+          "name": "Belgium",
+          "category": "Countries",
+          "type": "Country",
+          "lat": 50.503887,
+          "lng": 4.469936,
+          "region": "Western Europe",
+          "aliases": [],
+          "description": "Small country between France and Germany.",
+          "why": "The 'crossroads of Europe' and frequent battleground.",
+          "radiusKm": 138,
+          "bboxes": [
+            [
+              49.5,
+              2.5,
+              51.5,
+              6.4
+            ]
+          ]
+        },
+        {
+          "id": "loc_5whqjl3g0",
+          "name": "Black Sea",
+          "category": "Bodies of Water",
+          "type": "Sea",
+          "lat": 43.2,
+          "lng": 34,
+          "region": "Southeastern Europe / Anatolia",
+          "aliases": [],
+          "description": "Inland sea north of Turkey.",
+          "why": "Linked Greek colonies and later Russian trade to the Mediterranean.",
+          "radiusKm": 581,
+          "bboxes": [
+            [
+              40.9,
+              27.4,
+              47.3,
+              41.8
+            ]
+          ]
+        },
+        {
+          "id": "loc_t35sz3i0y",
+          "name": "Bosnia & Herzegovina",
+          "category": "Countries",
+          "type": "Country",
+          "lat": 43.915886,
+          "lng": 17.679076,
+          "region": "Europe",
+          "aliases": [
+            "Bosnia Herzegovina",
+            "Bosnia",
+            "Bosnia and Herzegovina"
+          ],
+          "description": "Mountainous Balkan country with a short Adriatic coastline.",
+          "why": "Sarajevo is a historic meeting point of cultures in the Balkans.",
+          "radiusKm": 156,
+          "bboxes": [
+            [
+              42.55,
+              15.72,
+              45.28,
+              19.63
+            ]
+          ]
+        },
+        {
+          "id": "loc_2wm7eeez6",
+          "name": "Bulgaria",
+          "category": "Countries",
+          "type": "Country",
+          "lat": 42.733883,
+          "lng": 25.48583,
+          "region": "Europe",
+          "aliases": [],
+          "description": "Southeastern European country south of the Danube and west of the Black Sea.",
+          "why": "Links the Danube basin, the Balkans, and the Black Sea.",
+          "radiusKm": 256,
+          "bboxes": [
+            [
+              41.24,
+              22.36,
+              44.22,
+              28.61
+            ]
+          ]
+        },
+        {
+          "id": "loc_ray0alvd7",
+          "name": "Croatia",
+          "category": "Countries",
+          "type": "Country",
+          "lat": 45.1,
+          "lng": 15.2,
+          "region": "Europe",
+          "aliases": [],
+          "description": "Balkan country with a long Adriatic coast.",
+          "why": "Its ports and islands connect central Europe with the Mediterranean.",
+          "radiusKm": 234,
+          "bboxes": [
+            [
+              42.39,
+              13.49,
+              46.56,
+              19.45
+            ]
+          ]
+        },
+        {
+          "id": "loc_bye24pm65",
+          "name": "Cyprus",
+          "category": "Countries",
+          "type": "Country",
+          "lat": 35.126413,
+          "lng": 33.429859,
+          "region": "Eastern Mediterranean",
+          "aliases": [],
+          "description": "Island south of Turkey.",
+          "why": "Copper island contested by every regional empire.",
+          "radiusKm": 109,
+          "bboxes": [
+            [
+              34.5,
+              32.2,
+              35.7,
+              34.6
+            ]
+          ]
+        },
+        {
+          "id": "loc_4ed1n2how",
+          "name": "Czech Republic",
+          "category": "Countries",
+          "type": "Country",
+          "lat": 49.817492,
+          "lng": 15.472962,
+          "region": "Europe",
+          "aliases": [
+            "Czechia"
+          ],
+          "description": "Landlocked central European country between Germany, Poland, Austria, and Slovakia.",
+          "why": "Bohemia and Moravia form a historic crossroads of central Europe.",
+          "radiusKm": 243,
+          "bboxes": [
+            [
+              48.55,
+              12.09,
+              51.06,
+              18.86
+            ]
+          ]
+        },
+        {
+          "id": "loc_vh1eqejc4",
+          "name": "Denmark",
+          "category": "Countries",
+          "type": "Country",
+          "lat": 56.26392,
+          "lng": 9.501785,
+          "region": "Northern Europe",
+          "aliases": [],
+          "description": "Peninsular and island country at the Baltic's mouth.",
+          "why": "Viking kingdom controlling northern sea lanes.",
+          "radiusKm": 177,
+          "bboxes": [
+            [
+              54.6,
+              8.1,
+              57.8,
+              12.7
+            ]
+          ]
+        },
+        {
+          "id": "loc_gk30ndxlp",
+          "name": "Estonia",
+          "category": "Countries",
+          "type": "Country",
+          "lat": 58.595272,
+          "lng": 25.013607,
+          "region": "Europe",
+          "aliases": [],
+          "description": "Northernmost Baltic country, south of the Gulf of Finland.",
+          "why": "Its position links the Baltic region with Finland and northern Europe.",
+          "radiusKm": 187,
+          "bboxes": [
+            [
+              57.5,
+              21.76,
+              59.68,
+              28.21
+            ]
+          ]
+        },
+        {
+          "id": "loc_wt7vghr54",
+          "name": "Finland",
+          "category": "Countries",
+          "type": "Country",
+          "lat": 61.92411,
+          "lng": 25.748151,
+          "region": "Northern Europe",
+          "aliases": [],
+          "description": "Nordic country of lakes and forests.",
+          "why": "Borderland between Scandinavia and Russia.",
+          "radiusKm": 569,
+          "bboxes": [
+            [
+              59.8,
+              20.6,
+              70.1,
+              31.6
+            ]
+          ]
+        },
+        {
+          "id": "loc_vtl3len0m",
+          "name": "France",
+          "category": "Countries",
+          "type": "Country",
+          "lat": 46.227638,
+          "lng": 2.213749,
+          "region": "Western Europe",
+          "aliases": [],
+          "description": "Largest country of Western Europe.",
+          "why": "Center of medieval culture, absolutism, and revolution.",
+          "radiusKm": 566,
+          "bboxes": [
+            [
+              41.3,
+              -5.2,
+              51.1,
+              9.6
+            ]
+          ]
+        },
+        {
+          "id": "loc_1f01i5f4q",
+          "name": "Germany",
+          "category": "Countries",
+          "type": "Country",
+          "lat": 51.165691,
+          "lng": 10.451526,
+          "region": "Central Europe",
+          "aliases": [],
+          "description": "Central European country.",
+          "why": "Industrial powerhouse at the center of 20th-century world wars.",
+          "radiusKm": 431,
+          "bboxes": [
+            [
+              47.3,
+              5.9,
+              55.1,
+              15
+            ]
+          ]
+        },
+        {
+          "id": "loc_sulxxqjmy",
+          "name": "Greece",
+          "category": "Countries",
+          "type": "Country",
+          "lat": 39.074208,
+          "lng": 21.824312,
+          "region": "Southeastern Europe",
+          "aliases": [
+            "hellas"
+          ],
+          "description": "Mountainous, sea-facing country of city-states.",
+          "why": "Foundation of Western philosophy, democracy, and science.",
+          "radiusKm": 389,
+          "bboxes": [
+            [
+              34.8,
+              19.3,
+              41.8,
+              28.3
+            ]
+          ]
+        },
+        {
+          "id": "loc_40c2u0nvl",
+          "name": "Hungary",
+          "category": "Countries",
+          "type": "Country",
+          "lat": 47.162494,
+          "lng": 19.503304,
+          "region": "Central Europe",
+          "aliases": [],
+          "description": "Country of the Danube plain.",
+          "why": "Magyar kingdom at Europe's eastern gate.",
+          "radiusKm": 257,
+          "bboxes": [
+            [
+              45.7,
+              16.1,
+              48.6,
+              22.9
+            ]
+          ]
+        },
+        {
+          "id": "loc_61o41radg",
+          "name": "Iceland",
+          "category": "Countries",
+          "type": "Country",
+          "lat": 64.963051,
+          "lng": -19.020835,
+          "region": "North Atlantic",
+          "aliases": [],
+          "description": "Volcanic island nation in the North Atlantic.",
+          "why": "Viking settlement with the world's oldest parliament.",
+          "radiusKm": 260,
+          "bboxes": [
+            [
+              63.3,
+              -24.5,
+              66.6,
+              -13.5
+            ]
+          ]
+        },
+        {
+          "id": "loc_93k7ambm0",
+          "name": "Ireland",
+          "category": "Countries",
+          "type": "Country",
+          "lat": 53.41291,
+          "lng": -8.24389,
+          "region": "Northwestern Europe",
+          "aliases": [],
+          "description": "Island country west of Britain.",
+          "why": "Monastic scholars preserved learning in the early Middle Ages.",
+          "radiusKm": 221,
+          "bboxes": [
+            [
+              51.4,
+              -10.5,
+              55.4,
+              -6
+            ]
+          ]
+        },
+        {
+          "id": "loc_7n4stnh31",
+          "name": "Italy",
+          "category": "Countries",
+          "type": "Country",
+          "lat": 41.87194,
+          "lng": 12.56738,
+          "region": "Southern Europe",
+          "aliases": [],
+          "description": "Boot-shaped Mediterranean country.",
+          "why": "Heart of the Roman Empire and the Renaissance.",
+          "radiusKm": 580,
+          "bboxes": [
+            [
+              36.6,
+              6.6,
+              47.1,
+              18.5
+            ]
+          ]
+        },
+        {
+          "id": "loc_hr3ksf4v6",
+          "name": "Kosovo",
+          "category": "Countries",
+          "type": "Country",
+          "lat": 42.602636,
+          "lng": 20.902977,
+          "region": "Europe",
+          "aliases": [
+            "Republic of Kosovo"
+          ],
+          "description": "Landlocked territory in the central Balkans that declared independence in 2008; recognition is not universal.",
+          "why": "Located between Serbia, Albania, Montenegro, and North Macedonia.",
+          "radiusKm": 79,
+          "bboxes": [
+            [
+              41.85,
+              20.01,
+              43.27,
+              21.79
+            ]
+          ]
+        },
+        {
+          "id": "loc_0go0iky2z",
+          "name": "Latvia",
+          "category": "Countries",
+          "type": "Country",
+          "lat": 56.879635,
+          "lng": 24.603189,
+          "region": "Europe",
+          "aliases": [],
+          "description": "Baltic country between Estonia and Lithuania.",
+          "why": "Riga and the Daugava connect the Baltic coast with the interior.",
+          "radiusKm": 221,
+          "bboxes": [
+            [
+              55.67,
+              20.97,
+              58.09,
+              28.24
+            ]
+          ]
+        },
+        {
+          "id": "loc_ionyw7mbr",
+          "name": "Liechtenstein",
+          "category": "Countries",
+          "type": "Country",
+          "lat": 47.166,
+          "lng": 9.555373,
+          "region": "Europe",
+          "aliases": [],
+          "description": "Small Alpine country between Switzerland and Austria.",
+          "why": "One of only two doubly landlocked countries in the world.",
+          "radiusKm": 13,
+          "bboxes": [
+            [
+              47.05,
+              9.47,
+              47.28,
+              9.64
+            ]
+          ]
+        },
+        {
+          "id": "loc_rq7zne3xx",
+          "name": "Lithuania",
+          "category": "Countries",
+          "type": "Country",
+          "lat": 55.169438,
+          "lng": 23.881275,
+          "region": "Europe",
+          "aliases": [],
+          "description": "Southernmost Baltic country, north of Poland and Belarus.",
+          "why": "Once part of a large commonwealth with Poland.",
+          "radiusKm": 188,
+          "bboxes": [
+            [
+              53.9,
+              20.93,
+              56.45,
+              26.84
+            ]
+          ]
+        },
+        {
+          "id": "loc_2gwfn8ay5",
+          "name": "Luxembourg",
+          "category": "Countries",
+          "type": "Country",
+          "lat": 49.815273,
+          "lng": 6.129583,
+          "region": "Europe",
+          "aliases": [],
+          "description": "Small landlocked country between Belgium, France, and Germany.",
+          "why": "A founding member and institutional center of European integration.",
+          "radiusKm": 40,
+          "bboxes": [
+            [
+              49.45,
+              5.73,
+              50.18,
+              6.53
+            ]
+          ]
+        },
+        {
+          "id": "loc_ympjtauxp",
+          "name": "Macedonia",
+          "category": "Historical Regions",
+          "type": "Historical Region",
+          "lat": 40.8,
+          "lng": 22.4,
+          "region": "Northern Greece / Balkans",
+          "aliases": [
+            "macedon",
+            "ancient macedonia",
+            "kingdom macedon"
+          ],
+          "description": "Ancient kingdom north of Greece, centered at Pella.",
+          "why": "Homeland of Philip II and Alexander the Great, who spread Hellenism to India.",
+          "radiusKm": 139,
+          "bboxes": [
+            [
+              39.9,
+              20.9,
+              42.1,
+              24.2
+            ]
+          ]
+        },
+        {
+          "id": "loc_dn4lxhjpw",
+          "name": "Malta",
+          "category": "Countries",
+          "type": "Country",
+          "lat": 35.937496,
+          "lng": 14.375416,
+          "region": "Central Mediterranean",
+          "aliases": [
+            "maltese islands"
+          ],
+          "description": "Small island group between Sicily and North Africa.",
+          "why": "Strategic naval stepping stone at the Mediterranean's narrowest crossing.",
+          "radiusKm": 18,
+          "bboxes": [
+            [
+              35.78,
+              14.18,
+              36.09,
+              14.58
+            ]
+          ]
+        },
+        {
+          "id": "loc_lonw36jgd",
+          "name": "Mediterranean Sea",
+          "category": "Bodies of Water",
+          "type": "Sea",
+          "lat": 35.5,
+          "lng": 18,
+          "region": "Between Europe, Africa & Asia",
+          "aliases": [
+            "mediterranean"
+          ],
+          "description": "Nearly enclosed sea linking three continents.",
+          "why": "The highway of Phoenician, Greek, and Roman civilization.",
+          "radiusKm": 1915,
+          "bboxes": [
+            [
+              30,
+              -6,
+              46,
+              36
+            ]
+          ]
+        },
+        {
+          "id": "loc_bz2ziwkt2",
+          "name": "Moldova",
+          "category": "Countries",
+          "type": "Country",
+          "lat": 47.411631,
+          "lng": 28.369885,
+          "region": "Europe",
+          "aliases": [
+            "Republic of Moldova"
+          ],
+          "description": "Landlocked country between Romania and Ukraine.",
+          "why": "Lies between the Prut and Dniester river systems.",
+          "radiusKm": 167,
+          "bboxes": [
+            [
+              45.47,
+              26.62,
+              48.49,
+              30.14
+            ]
+          ]
+        },
+        {
+          "id": "loc_jslxu2ssn",
+          "name": "Monaco",
+          "category": "Countries",
+          "type": "Country",
+          "lat": 43.750298,
+          "lng": 7.412841,
+          "region": "Europe",
+          "aliases": [],
+          "description": "Tiny Mediterranean country on the French Riviera.",
+          "why": "A sovereign city-state bordered by France and the sea.",
+          "radiusKm": 2,
+          "bboxes": [
+            [
+              43.724,
+              7.409,
+              43.752,
+              7.44
+            ]
+          ]
+        },
+        {
+          "id": "loc_7g7il2d0p",
+          "name": "Montenegro",
+          "category": "Countries",
+          "type": "Country",
+          "lat": 42.708678,
+          "lng": 19.37439,
+          "region": "Europe",
+          "aliases": [],
+          "description": "Mountainous Balkan country on the Adriatic Sea.",
+          "why": "Its rugged coast includes the sheltered Bay of Kotor.",
+          "radiusKm": 95,
+          "bboxes": [
+            [
+              41.85,
+              18.43,
+              43.56,
+              20.36
+            ]
+          ]
+        },
+        {
+          "id": "loc_r0ijcrpc6",
+          "name": "The Netherlands",
+          "category": "Countries",
+          "type": "Country",
+          "lat": 52.132633,
+          "lng": 5.291266,
+          "region": "Western Europe",
+          "aliases": [
+            "holland",
+            "Netherlands"
+          ],
+          "description": "Low-lying country on the North Sea.",
+          "why": "17th-century maritime and financial superpower.",
+          "radiusKm": 155,
+          "bboxes": [
+            [
+              50.8,
+              3.3,
+              53.6,
+              7.2
+            ]
+          ]
+        },
+        {
+          "id": "loc_cyquu127h",
+          "name": "North Sea",
+          "category": "Bodies of Water",
+          "type": "Sea",
+          "lat": 56,
+          "lng": 3,
+          "region": "Northern Europe",
+          "aliases": [],
+          "description": "Sea between Britain and Scandinavia.",
+          "why": "Viking sea lanes and modern energy resources.",
+          "radiusKm": 553,
+          "bboxes": [
+            [
+              51,
+              -4,
+              61,
+              9
+            ]
+          ]
+        },
+        {
+          "id": "loc_ljvx52yn7",
+          "name": "Norway",
+          "category": "Countries",
+          "type": "Country",
+          "lat": 60.472024,
+          "lng": 8.468946,
+          "region": "Scandinavia",
+          "aliases": [],
+          "description": "Fjord-lined country of the Scandinavian Peninsula.",
+          "why": "Viking seafarers set out from its coasts.",
+          "radiusKm": 730,
+          "bboxes": [
+            [
+              58,
+              4.6,
+              71.2,
+              31.1
+            ]
+          ]
+        },
+        {
+          "id": "loc_kl7orfzcc",
+          "name": "Norwegian Sea",
+          "category": "Bodies of Water",
+          "type": "Sea",
+          "lat": 69,
+          "lng": 5,
+          "region": "Northern Atlantic / Europe",
+          "aliases": [],
+          "description": "North Atlantic sea between Norway, Iceland, and the Greenland Sea.",
+          "why": "Connects the North Atlantic to Arctic waters.",
+          "radiusKm": 774,
+          "bboxes": [
+            [
+              61,
+              -12,
+              75,
+              16
+            ]
+          ]
+        },
+        {
+          "id": "loc_zrcuqoi16",
+          "name": "Poland",
+          "category": "Countries",
+          "type": "Country",
+          "lat": 51.919438,
+          "lng": 19.145136,
+          "region": "Central Europe",
+          "aliases": [],
+          "description": "Country on the North European Plain.",
+          "why": "Repeatedly partitioned crossroads of Europe.",
+          "radiusKm": 345,
+          "bboxes": [
+            [
+              49,
+              14.1,
+              54.9,
+              24.2
+            ]
+          ]
+        },
+        {
+          "id": "loc_vh5gc29i1",
+          "name": "Portugal",
+          "category": "Countries",
+          "type": "Country",
+          "lat": 39.399872,
+          "lng": -8.224454,
+          "region": "Iberian Peninsula, Europe",
+          "aliases": [],
+          "description": "Atlantic-facing country west of Spain.",
+          "why": "Pioneered the sea route around Africa to Asia.",
+          "radiusKm": 293,
+          "bboxes": [
+            [
+              36.9,
+              -9.5,
+              42.2,
+              -6.2
+            ]
+          ]
+        },
+        {
+          "id": "loc_966lqzweh",
+          "name": "Romania",
+          "category": "Countries",
+          "type": "Country",
+          "lat": 45.943161,
+          "lng": 24.96676,
+          "region": "Europe",
+          "aliases": [],
+          "description": "Southeastern European country on the lower Danube and Black Sea.",
+          "why": "The Carpathians and the Danube shape its landscape.",
+          "radiusKm": 366,
+          "bboxes": [
+            [
+              43.62,
+              20.26,
+              48.27,
+              29.71
+            ]
+          ]
+        },
+        {
+          "id": "loc_0a1hvqwdf",
+          "name": "Russia",
+          "category": "Countries",
+          "type": "Country",
+          "lat": 61.52401,
+          "lng": 105.318756,
+          "region": "Eastern Europe / North Asia",
+          "aliases": [
+            "russian federation"
+          ],
+          "description": "The world's largest country, spanning Eurasia.",
+          "why": "Bridge \u2014 and buffer \u2014 between Europe and Asia.",
+          "radiusKm": 4464,
+          "bboxes": [
+            [
+              41.2,
+              19.6,
+              77.7,
+              180
+            ]
+          ]
+        },
+        {
+          "id": "loc_7m8eefmiv",
+          "name": "San Marino",
+          "category": "Countries",
+          "type": "Country",
+          "lat": 43.94236,
+          "lng": 12.457777,
+          "region": "Europe",
+          "aliases": [],
+          "description": "Small landlocked republic surrounded by Italy.",
+          "why": "One of the oldest surviving republics in the world.",
+          "radiusKm": 5,
+          "bboxes": [
+            [
+              43.893,
+              12.403,
+              43.992,
+              12.517
+            ]
+          ]
+        },
+        {
+          "id": "loc_7phjrjtvc",
+          "name": "Serbia",
+          "category": "Countries",
+          "type": "Country",
+          "lat": 44.016521,
+          "lng": 21.005859,
+          "region": "Europe",
+          "aliases": [],
+          "description": "Landlocked Balkan country centered on the Danube and Morava valleys.",
+          "why": "Belgrade stands at the meeting of the Danube and Sava.",
+          "radiusKm": 219,
+          "bboxes": [
+            [
+              42.23,
+              18.82,
+              46.19,
+              23.01
+            ]
+          ]
+        },
+        {
+          "id": "loc_pi9qol7dw",
+          "name": "Slovakia",
+          "category": "Countries",
+          "type": "Country",
+          "lat": 48.669026,
+          "lng": 19.699024,
+          "region": "Europe",
+          "aliases": [
+            "Slovak Republic"
+          ],
+          "description": "Landlocked central European country south of Poland.",
+          "why": "The Carpathians dominate the north and the Danube borders the southwest.",
+          "radiusKm": 211,
+          "bboxes": [
+            [
+              47.73,
+              16.83,
+              49.61,
+              22.57
+            ]
+          ]
+        },
+        {
+          "id": "loc_8czqse2lc",
+          "name": "Slovenia",
+          "category": "Countries",
+          "type": "Country",
+          "lat": 46.151241,
+          "lng": 14.995463,
+          "region": "Europe",
+          "aliases": [],
+          "description": "Country where the Alps meet the Balkans and the Adriatic.",
+          "why": "Connects Alpine, Mediterranean, and central European routes.",
+          "radiusKm": 125,
+          "bboxes": [
+            [
+              45.42,
+              13.38,
+              46.88,
+              16.61
+            ]
+          ]
+        },
+        {
+          "id": "loc_f98zrxb7e",
+          "name": "Spain",
+          "category": "Countries",
+          "type": "Country",
+          "lat": 40.463667,
+          "lng": -3.74922,
+          "region": "Iberian Peninsula, Europe",
+          "aliases": [],
+          "description": "Country of the Iberian Peninsula.",
+          "why": "Built the first global empire after 1492.",
+          "radiusKm": 578,
+          "bboxes": [
+            [
+              36,
+              -9.3,
+              43.8,
+              4.3
+            ]
+          ]
+        },
+        {
+          "id": "loc_cio24gka8",
+          "name": "Strait of Gibraltar",
+          "category": "Bodies of Water",
+          "type": "Strait",
+          "lat": 35.97,
+          "lng": -5.5,
+          "region": "Between Spain & Morocco",
+          "aliases": [
+            "gibraltar"
+          ],
+          "description": "Narrow passage between the Atlantic and Mediterranean.",
+          "why": "The 'Pillars of Hercules' \u2014 gateway of the Mediterranean.",
+          "radiusKm": 41,
+          "bboxes": [
+            [
+              35.75,
+              -6.1,
+              36.2,
+              -5.2
+            ]
+          ]
+        },
+        {
+          "id": "loc_9477lwmll",
+          "name": "Sweden",
+          "category": "Countries",
+          "type": "Country",
+          "lat": 60.128161,
+          "lng": 18.643501,
+          "region": "Scandinavia",
+          "aliases": [],
+          "description": "Largest Nordic country.",
+          "why": "Viking homeland and one-time Baltic empire.",
+          "radiusKm": 763,
+          "bboxes": [
+            [
+              55.3,
+              11,
+              69.1,
+              24.2
+            ]
+          ]
+        },
+        {
+          "id": "loc_kggfrlrth",
+          "name": "Switzerland",
+          "category": "Countries",
+          "type": "Country",
+          "lat": 46.818188,
+          "lng": 8.227512,
+          "region": "Central Europe (Alps)",
+          "aliases": [],
+          "description": "Alpine confederation.",
+          "why": "Neutral banking hub in Europe's mountains.",
+          "radiusKm": 175,
+          "bboxes": [
+            [
+              45.8,
+              5.9,
+              47.8,
+              10.5
+            ]
+          ]
+        },
+        {
+          "id": "loc_pxqtoi42f",
+          "name": "Turkey",
+          "category": "Countries",
+          "type": "Country",
+          "lat": 38.963745,
+          "lng": 35.243322,
+          "region": "Anatolia / Southeastern Europe",
+          "aliases": [
+            "turkiye",
+            "t\u00fcrkiye"
+          ],
+          "description": "Country spanning Anatolia and a corner of Europe.",
+          "why": "Successor to Byzantine and Ottoman empires astride two continents.",
+          "radiusKm": 813,
+          "bboxes": [
+            [
+              35.8,
+              26,
+              42.1,
+              44.8
+            ]
+          ]
+        },
+        {
+          "id": "loc_6vg8yr27d",
+          "name": "Ukraine",
+          "category": "Countries",
+          "type": "Country",
+          "lat": 48.379433,
+          "lng": 31.16558,
+          "region": "Eastern Europe",
+          "aliases": [],
+          "description": "Large country north of the Black Sea.",
+          "why": "Breadbasket of Europe and cradle of Kyivan Rus.",
+          "radiusKm": 661,
+          "bboxes": [
+            [
+              44.4,
+              22.1,
+              52.4,
+              40.2
+            ]
+          ]
+        },
+        {
+          "id": "loc_gusfl68nm",
+          "name": "United Kingdom",
+          "category": "Countries",
+          "type": "Country",
+          "lat": 55.378051,
+          "lng": -3.435973,
+          "region": "Northwestern Europe",
+          "aliases": [
+            "uk",
+            "britain",
+            "great britain"
+          ],
+          "description": "Island country of England, Scotland, Wales, and Northern Ireland.",
+          "why": "Launched the Industrial Revolution and history's largest empire.",
+          "radiusKm": 487,
+          "bboxes": [
+            [
+              49.9,
+              -8.6,
+              58.7,
+              1.8
+            ]
+          ]
+        },
+        {
+          "id": "loc_1obvyqp1m",
+          "name": "Vatican City (Holy See)",
+          "category": "Countries",
+          "type": "Country",
+          "lat": 41.902916,
+          "lng": 12.453389,
+          "region": "Europe",
+          "aliases": [
+            "Holy See",
+            "Vatican",
+            "Vatican City State",
+            "Vatican City"
+          ],
+          "description": "Independent city-state enclosed by Rome, Italy.",
+          "why": "The smallest country by area and the seat of the Roman Catholic Church.",
+          "radiusKm": 1,
+          "bboxes": [
+            [
+              41.9002,
+              12.4457,
+              41.9074,
+              12.4584
+            ]
+          ]
+        }
+      ]
+    },
+    "artifacts/{appId}/public/data/globalSettings/siteMode": {
+      "dev": false
+    },
+    "artifacts/{appId}/public/data/globalSettings/stats": {
+      "visits": 0
+    },
+    "artifacts/{appId}/public/data/globalSettings/homeCards": {
+      "cards": [
+        {
+          "id": "agastya-archive",
+          "kicker": "Sponsored \u00b7 The Agastya Archive",
+          "titleHtml": "Listen in to today's rant",
+          "bodyHtml": "NEW!!! LISTEN TO AGASTYA'S DAILY RANT ABOUT HISTORY!",
+          "buttonLabel": "Listen",
+          "url": "https://agastyaarchive.edgeone.dev/",
+          "icon": "headphones",
+          "tone": "amber",
+          "layout": "compact"
+        }
+      ],
+      "updatedAt": {
+        "__fv": "serverTimestamp"
+      }
+    }
+  }
+}

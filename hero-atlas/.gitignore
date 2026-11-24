@@ -1,0 +1,28 @@
+# Local-only trailer project and dependency folders
+/hero-trailer/
+/node_modules/
+content/location-catalog.json
+
+# Local secrets and environment overrides (keep .env.example files trackable)
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# Credentials and local tooling state
+*.pem
+*.p12
+service-account*.json
+firebase-adminsdk-*.json
+.firebase/
+.vercel/
+.wrangler/
+
+# Logs and operating-system metadata
+*.log
+npm-debug.log*
+.DS_Store
+Thumbs.db
+
+# Local Hero server data (database, secrets, deploy overlay)
+/.data/
