@@ -1,0 +1,442 @@
+{
+  "_comment": "Initial data for the local Hero backend, captured from heroapp.edgeone.dev on 2026-11-23. Delete hero/.data to reseed.",
+  "docs": {
+    "artifacts/{appId}/public/data/globalSettings/defaultQuiz": {
+      "title": "Europe: Countries & Capitals",
+      "message": "",
+      "locations": [
+        {
+          "id": "loc_4omwqa5xo",
+          "name": "Atlantic Ocean",
+          "category": "Bodies of Water",
+          "lat": 45.0,
+          "lng": -25.0
+        },
+        {
+          "id": "loc_zbnrw6vth",
+          "name": "Adriatic Sea",
+          "category": "Bodies of Water",
+          "lat": 43.0,
+          "lng": 15.5
+        },
+        {
+          "id": "loc_o4s34rfd3",
+          "name": "Aegean Sea",
+          "category": "Bodies of Water",
+          "lat": 39.0,
+          "lng": 25.0
+        },
+        {
+          "id": "loc_1n351uojm",
+          "name": "Albania",
+          "category": "Countries",
+          "lat": 41.153332,
+          "lng": 20.168331
+        },
+        {
+          "id": "loc_fva5t3rnn",
+          "name": "Andorra",
+          "category": "Countries",
+          "lat": 42.546245,
+          "lng": 1.601554
+        },
+        {
+          "id": "loc_qq6tws35u",
+          "name": "Austria",
+          "category": "Countries",
+          "lat": 47.516231,
+          "lng": 14.550072
+        },
+        {
+          "id": "loc_1dkzdtcyu",
+          "name": "Bay of Biscay",
+          "category": "Bodies of Water",
+          "lat": 45.5,
+          "lng": -4.5
+        },
+        {
+          "id": "loc_jiytq9cmg",
+          "name": "Baltic Sea",
+          "category": "Bodies of Water",
+          "lat": 58.5,
+          "lng": 19.5
+        },
+        {
+          "id": "loc_zyifasili",
+          "name": "Belarus",
+          "category": "Countries",
+          "lat": 53.709807,
+          "lng": 27.953389
+        },
+        {
+          "id": "loc_jdwkdje3x",
+          "name": "Belgium",
+          "category": "Countries",
+          "lat": 50.503887,
+          "lng": 4.469936
+        },
+        {
+          "id": "loc_5whqjl3g0",
+          "name": "Black Sea",
+          "category": "Bodies of Water",
+          "lat": 43.2,
+          "lng": 34.0
+        },
+        {
+          "id": "loc_t35sz3i0y",
+          "name": "Bosnia & Herzegovina",
+          "category": "Countries",
+          "lat": 43.915886,
+          "lng": 17.679076
+        },
+        {
+          "id": "loc_2wm7eeez6",
+          "name": "Bulgaria",
+          "category": "Countries",
+          "lat": 42.733883,
+          "lng": 25.48583
+        },
+        {
+          "id": "loc_ray0alvd7",
+          "name": "Croatia",
+          "category": "Countries",
+          "lat": 45.1,
+          "lng": 15.2
+        },
+        {
+          "id": "loc_bye24pm65",
+          "name": "Cyprus",
+          "category": "Countries",
+          "lat": 35.126413,
+          "lng": 33.429859
+        },
+        {
+          "id": "loc_4ed1n2how",
+          "name": "Czech Republic",
+          "category": "Countries",
+          "lat": 49.817492,
+          "lng": 15.472962
+        },
+        {
+          "id": "loc_vh1eqejc4",
+          "name": "Denmark",
+          "category": "Countries",
+          "lat": 56.26392,
+          "lng": 9.501785
+        },
+        {
+          "id": "loc_gk30ndxlp",
+          "name": "Estonia",
+          "category": "Countries",
+          "lat": 58.595272,
+          "lng": 25.013607
+        },
+        {
+          "id": "loc_wt7vghr54",
+          "name": "Finland",
+          "category": "Countries",
+          "lat": 61.92411,
+          "lng": 25.748151
+        },
+        {
+          "id": "loc_vtl3len0m",
+          "name": "France",
+          "category": "Countries",
+          "lat": 46.227638,
+          "lng": 2.213749
+        },
+        {
+          "id": "loc_1f01i5f4q",
+          "name": "Germany",
+          "category": "Countries",
+          "lat": 51.165691,
+          "lng": 10.451526
+        },
+        {
+          "id": "loc_sulxxqjmy",
+          "name": "Greece",
+          "category": "Countries",
+          "lat": 39.074208,
+          "lng": 21.824312
+        },
+        {
+          "id": "loc_40c2u0nvl",
+          "name": "Hungary",
+          "category": "Countries",
+          "lat": 47.162494,
+          "lng": 19.503304
+        },
+        {
+          "id": "loc_61o41radg",
+          "name": "Iceland",
+          "category": "Countries",
+          "lat": 64.963051,
+          "lng": -19.020835
+        },
+        {
+          "id": "loc_93k7ambm0",
+          "name": "Ireland",
+          "category": "Countries",
+          "lat": 53.41291,
+          "lng": -8.24389
+        },
+        {
+          "id": "loc_7n4stnh31",
+          "name": "Italy",
+          "category": "Countries",
+          "lat": 41.87194,
+          "lng": 12.56738
+        },
+        {
+          "id": "loc_hr3ksf4v6",
+          "name": "Kosovo",
+          "category": "Countries",
+          "lat": 42.602636,
+          "lng": 20.902977
+        },
+        {
+          "id": "loc_0go0iky2z",
+          "name": "Latvia",
+          "category": "Countries",
+          "lat": 56.879635,
+          "lng": 24.603189
+        },
+        {
+          "id": "loc_ionyw7mbr",
+          "name": "Liechtenstein",
+          "category": "Countries",
+          "lat": 47.166,
+          "lng": 9.555373
+        },
+        {
+          "id": "loc_rq7zne3xx",
+          "name": "Lithuania",
+          "category": "Countries",
+          "lat": 55.169438,
+          "lng": 23.881275
+        },
+        {
+          "id": "loc_2gwfn8ay5",
+          "name": "Luxembourg",
+          "category": "Countries",
+          "lat": 49.815273,
+          "lng": 6.129583
+        },
+        {
+          "id": "loc_ympjtauxp",
+          "name": "Macedonia",
+          "category": "Countries",
+          "lat": 41.608635,
+          "lng": 21.745275
+        },
+        {
+          "id": "loc_dn4lxhjpw",
+          "name": "Malta",
+          "category": "Countries",
+          "lat": 35.937496,
+          "lng": 14.375416
+        },
+        {
+          "id": "loc_lonw36jgd",
+          "name": "Mediterranean Sea",
+          "category": "Bodies of Water",
+          "lat": 35.5,
+          "lng": 18.0
+        },
+        {
+          "id": "loc_bz2ziwkt2",
+          "name": "Moldova",
+          "category": "Countries",
+          "lat": 47.411631,
+          "lng": 28.369885
+        },
+        {
+          "id": "loc_jslxu2ssn",
+          "name": "Monaco",
+          "category": "Countries",
+          "lat": 43.750298,
+          "lng": 7.412841
+        },
+        {
+          "id": "loc_7g7il2d0p",
+          "name": "Montenegro",
+          "category": "Countries",
+          "lat": 42.708678,
+          "lng": 19.37439
+        },
+        {
+          "id": "loc_r0ijcrpc6",
+          "name": "The Netherlands",
+          "category": "Countries",
+          "lat": 52.132633,
+          "lng": 5.291266
+        },
+        {
+          "id": "loc_cyquu127h",
+          "name": "North Sea",
+          "category": "Bodies of Water",
+          "lat": 56.0,
+          "lng": 3.0
+        },
+        {
+          "id": "loc_ljvx52yn7",
+          "name": "Norway",
+          "category": "Countries",
+          "lat": 60.472024,
+          "lng": 8.468946
+        },
+        {
+          "id": "loc_kl7orfzcc",
+          "name": "Norwegian Sea",
+          "category": "Bodies of Water",
+          "lat": 69.0,
+          "lng": 5.0
+        },
+        {
+          "id": "loc_zrcuqoi16",
+          "name": "Poland",
+          "category": "Countries",
+          "lat": 51.919438,
+          "lng": 19.145136
+        },
+        {
+          "id": "loc_vh5gc29i1",
+          "name": "Portugal",
+          "category": "Countries",
+          "lat": 39.399872,
+          "lng": -8.224454
+        },
+        {
+          "id": "loc_966lqzweh",
+          "name": "Romania",
+          "category": "Countries",
+          "lat": 45.943161,
+          "lng": 24.96676
+        },
+        {
+          "id": "loc_0a1hvqwdf",
+          "name": "Russia",
+          "category": "Countries",
+          "lat": 61.52401,
+          "lng": 105.318756
+        },
+        {
+          "id": "loc_7m8eefmiv",
+          "name": "San Marino",
+          "category": "Countries",
+          "lat": 43.94236,
+          "lng": 12.457777
+        },
+        {
+          "id": "loc_7phjrjtvc",
+          "name": "Serbia",
+          "category": "Countries",
+          "lat": 44.016521,
+          "lng": 21.005859
+        },
+        {
+          "id": "loc_pi9qol7dw",
+          "name": "Slovakia",
+          "category": "Countries",
+          "lat": 48.669026,
+          "lng": 19.699024
+        },
+        {
+          "id": "loc_8czqse2lc",
+          "name": "Slovenia",
+          "category": "Countries",
+          "lat": 46.151241,
+          "lng": 14.995463
+        },
+        {
+          "id": "loc_f98zrxb7e",
+          "name": "Spain",
+          "category": "Countries",
+          "lat": 40.463667,
+          "lng": -3.74922
+        },
+        {
+          "id": "loc_cio24gka8",
+          "name": "Strait of Gibraltar",
+          "category": "Bodies of Water",
+          "lat": 35.97,
+          "lng": -5.5
+        },
+        {
+          "id": "loc_9477lwmll",
+          "name": "Sweden",
+          "category": "Countries",
+          "lat": 60.128161,
+          "lng": 18.643501
+        },
+        {
+          "id": "loc_kggfrlrth",
+          "name": "Switzerland",
+          "category": "Countries",
+          "lat": 46.818188,
+          "lng": 8.227512
+        },
+        {
+          "id": "loc_pxqtoi42f",
+          "name": "Turkey",
+          "category": "Countries",
+          "lat": 38.963745,
+          "lng": 35.243322
+        },
+        {
+          "id": "loc_6vg8yr27d",
+          "name": "Ukraine",
+          "category": "Countries",
+          "lat": 48.379433,
+          "lng": 31.16558
+        },
+        {
+          "id": "loc_gusfl68nm",
+          "name": "United Kingdom",
+          "category": "Countries",
+          "lat": 55.378051,
+          "lng": -3.435973
+        },
+        {
+          "id": "loc_1obvyqp1m",
+          "name": "Vatican City (Holy See)",
+          "category": "Countries",
+          "lat": 41.902916,
+          "lng": 12.453389
+        },
+        {
+          "id": "loc_1fxi80h44",
+          "name": "Mongol Empire",
+          "category": "Empires",
+          "lat": 46.862496,
+          "lng": 103.846656,
+          "year": 1279
+        }
+      ]
+    },
+    "artifacts/{appId}/public/data/globalSettings/siteMode": {
+      "dev": true
+    },
+    "artifacts/{appId}/public/data/globalSettings/stats": {
+      "visits": 66
+    },
+    "artifacts/{appId}/public/data/globalSettings/homeCards": {
+      "cards": [
+        {
+          "id": "agastya-archive",
+          "kicker": "Sponsored · The Agastya Archive",
+          "titleHtml": "Listen in to today's rant",
+          "bodyHtml": "NEW!!! LISTEN TO AGASTYA'S DAILY RANT ABOUT HISTORY!",
+          "buttonLabel": "Listen",
+          "url": "https://agastyaarchive.edgeone.dev/",
+          "icon": "headphones",
+          "tone": "amber",
+          "layout": "compact"
+        }
+      ],
+      "updatedAt": {
+        "__fv": "serverTimestamp"
+      }
+    }
+  }
+}
